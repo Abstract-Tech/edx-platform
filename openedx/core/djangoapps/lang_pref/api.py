@@ -6,7 +6,7 @@ from collections import namedtuple
 from django.conf import settings
 from django.utils.translation import gettext as _
 from openedx.core.djangoapps.dark_lang.models import DarkLangConfig
-from openedx.core.djangoapps.site_configuration.helpers import get_value
+from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 
 # Named tuples can be referenced using object-like variable
 # deferencing, making the use of tuples more readable by
@@ -16,17 +16,17 @@ Language = namedtuple('Language', 'code name')
 
 def header_language_selector_is_enabled():
     """Return true if the header language selector has been enabled via settings or site-specific configuration."""
-    setting = get_value('SHOW_HEADER_LANGUAGE_SELECTOR', settings.FEATURES.get('SHOW_HEADER_LANGUAGE_SELECTOR', False))
+    setting = configuration_helpers.get_value('SHOW_HEADER_LANGUAGE_SELECTOR', settings.FEATURES.get('SHOW_HEADER_LANGUAGE_SELECTOR', False))
 
     # The SHOW_LANGUAGE_SELECTOR setting is deprecated, but might still be in use on some installations.
-    deprecated_setting = get_value('SHOW_LANGUAGE_SELECTOR', settings.FEATURES.get('SHOW_LANGUAGE_SELECTOR', False))
+    deprecated_setting = configuration_helpers.get_value('SHOW_LANGUAGE_SELECTOR', settings.FEATURES.get('SHOW_LANGUAGE_SELECTOR', False))
 
     return setting or deprecated_setting
 
 
 def footer_language_selector_is_enabled():
     """Return true if the footer language selector has been enabled via settings or site-specific configuration."""
-    return get_value('SHOW_FOOTER_LANGUAGE_SELECTOR', settings.FEATURES.get('SHOW_FOOTER_LANGUAGE_SELECTOR', False))
+    return configuration_helpers.get_value('SHOW_FOOTER_LANGUAGE_SELECTOR', settings.FEATURES.get('SHOW_FOOTER_LANGUAGE_SELECTOR', False))
 
 
 def released_languages():
@@ -82,12 +82,22 @@ def all_languages():
     return sorted(languages, key=lambda lang: lang[1])
 
 
+def get_current_site_language():
+    if configuration_helpers.has_override_value('LANGUAGE_CODE'):
+        return configuration_helpers.get_value('LANGUAGE_CODE')
+    return None
+
+
 def get_closest_released_language(target_language_code):
     """
     Return the language code that most closely matches the target and is fully
     supported by the LMS, or None if there are no fully supported languages that
     match the target.
     """
+    site_language = get_current_site_language()
+    if site_language:
+        return site_language
+
     match = None
     languages = released_languages()
 

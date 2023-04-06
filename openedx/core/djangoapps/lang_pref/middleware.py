@@ -2,15 +2,17 @@
 Middleware for Language Preferences
 """
 
+from django.conf import settings
 
 from django.utils.deprecation import MiddlewareMixin
+from django.utils import translation
 from django.utils.translation import LANGUAGE_SESSION_KEY
 from django.utils.translation.trans_real import parse_accept_lang_header
-
 from openedx.core.djangoapps.dark_lang import DARK_LANGUAGE_KEY
 from openedx.core.djangoapps.dark_lang.models import DarkLangConfig
 from openedx.core.djangoapps.lang_pref import LANGUAGE_HEADER, LANGUAGE_KEY
 from openedx.core.djangoapps.lang_pref import helpers as lang_pref_helpers
+from openedx.core.djangoapps.lang_pref.api import get_current_site_language
 from openedx.core.djangoapps.user_api.errors import UserAPIInternalError, UserAPIRequestError
 from openedx.core.djangoapps.user_api.preferences.api import get_user_preference, set_user_preference
 from openedx.core.lib.mobile_utils import is_request_from_mobile_app
@@ -29,7 +31,15 @@ class LanguagePreferenceMiddleware(MiddlewareMixin):
         If a user's UserPreference contains a language preference, use the user's preference.
         Save the current language preference cookie as the user's preferred language.
         """
-        cookie_lang = lang_pref_helpers.get_language_cookie(request)
+        # If we are in a language site force the site language
+        current_site_language = get_current_site_language()
+        if current_site_language:
+            cookie_lang = current_site_language
+        else:
+            cookie_lang = lang_pref_helpers.get_language_cookie(request)
+
+        translation.activate(cookie_lang)
+
         if cookie_lang:
             if request.user.is_authenticated:
                 # DarkLangMiddleware will take care of this so don't change anything
