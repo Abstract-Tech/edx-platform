@@ -7,7 +7,7 @@ from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
 
 # The maximum length for the bio ("about me") account field
-BIO_MAX_LENGTH = 300
+BIO_MAX_LENGTH = 3000
 
 # The minimum and maximum length for the name ("full name") account field
 NAME_MIN_LENGTH = 1
