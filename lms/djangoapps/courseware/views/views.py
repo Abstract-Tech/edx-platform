@@ -135,6 +135,7 @@ from openedx.features.course_experience.url_helpers import (
 from openedx.features.course_experience.utils import dates_banner_should_display
 from openedx.features.course_experience.waffle import ENABLE_COURSE_ABOUT_SIDEBAR_HTML
 from openedx.features.enterprise_support.api import data_sharing_consent_required
+from lms.djangoapps.courseware.access import has_staff_access_to_preview_mode
 
 from ..block_render import get_block, get_block_by_usage_id, get_block_for_descriptor
 from ..tabs import _get_dynamic_tabs
@@ -287,6 +288,7 @@ def courses(request):
 
     # Add marketable programs to the context.
     programs_list = get_programs_with_type(request.site, include_hidden=False)
+    courses_list = [ c for c in courses_list if( (c.number in ['01-2024','DemoX']) or (has_staff_access_to_preview_mode(request.user, c.id )) )]
 
     return render_to_response(
         "courseware/courses.html",
