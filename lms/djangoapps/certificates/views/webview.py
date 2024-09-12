@@ -242,6 +242,8 @@ def _update_context_with_basic_info(context, course_id, platform_name, configura
         platform_name=platform_name
     )
 
+    context['cert_name_long'] = course_overview.cert_name_long
+
 
 def _update_course_context(request, context, course, platform_name):
     """
@@ -608,6 +610,7 @@ def render_html_view(request, course_id, certificate=None):  # pylint: disable=t
         _update_context_with_basic_info(context, course_id, platform_name, configuration)
 
         context['certificate_data'] = active_configuration
+        context['cert_name_long'] = course_overview.cert_name_long
 
         # Append/Override the existing view context values with any mode-specific ConfigurationModel values
         context.update(configuration.get(user_certificate.mode, {}))
