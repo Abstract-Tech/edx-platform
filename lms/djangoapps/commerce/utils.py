@@ -77,8 +77,17 @@ class EcommerceService:
         Returns:
             Receipt page for the specified Order.
         """
+        from openedx.core.djangoapps.site_configuration.models import SiteConfiguration
+        SiteConfiguration.get_configuration_for_org('Buergerakademie')
 
-        return self.get_absolute_ecommerce_url(CommerceConfiguration.DEFAULT_RECEIPT_PAGE_URL + order_number)
+        if order_number.startswith('BURGER'):
+            ecommerce_url = SiteConfiguration.get_configuration_for_org('Buergerakademie').get_value('ECOMMERCE_PUBLIC_URL_ROOT')
+        else:
+            ecommerce_url = settings.ECOMMERCE_PUBLIC_URL_ROOT
+        return f"{ecommerce_url}/checkout/receipt/?order_number={order_number}"
+
+
+        #return self.get_absolute_ecommerce_url(CommerceConfiguration.DEFAULT_RECEIPT_PAGE_URL + order_number)
 
     def is_enabled(self, user):
         """
