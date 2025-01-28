@@ -610,6 +610,13 @@ def render_html_view(request, course_id, certificate=None):  # pylint: disable=t
         except CertificateRenderStarted.RenderCustomResponse as exc:
             response = exc.response
         else:
+            from edx_django_utils.plugins import get_plugins_view_context
+            from openedx.core.djangoapps.plugins.constants import ProjectType
+            get_plugins_view_context(
+                ProjectType.LMS,
+                'render_preview_certificate',
+                context
+            )
             response = _render_valid_certificate(request, context, custom_template)
 
         # Render the certificate
