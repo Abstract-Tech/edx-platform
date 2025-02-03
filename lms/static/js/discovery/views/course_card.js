@@ -10,8 +10,7 @@
         'use strict';
 
         function formatDate(date, userLanguage, userTimezone) {
-            var context;
-            context = {
+            var context = {
                 datetime: date,
                 language: userLanguage,
                 timezone: userTimezone,
@@ -25,11 +24,12 @@
             tagName: 'li',
             templateId: '#course_card-tpl',
             className: 'courses-listing-item',
+            
 
             initialize: function() {
                 this.tpl = HtmlUtils.template($(this.templateId).html());
             },
-
+            
             render: function() {
                 var data = _.clone(this.model.attributes);
                 var userLanguage = '',
@@ -38,6 +38,7 @@
                     userLanguage = this.model.userPreferences.userLanguage;
                     userTimezone = this.model.userPreferences.userTimezone;
                 }
+
                 if (data.advertised_start !== undefined) {
                     data.start = data.advertised_start;
                 } else {
@@ -47,6 +48,7 @@
                         userTimezone
                     );
                 }
+
                 data.end = formatDate(
                     new Date(data.end),
                     userLanguage,
@@ -57,13 +59,17 @@
                     userLanguage,
                     userTimezone
                 );
+
+                // Ensure instructor_names is present
+                data.instructor_names = data.instructor_names || 'Instructor: Not Available';
+                $('.course-info').append('<div class="course-instructor"><strong>Instructor(s):</strong> ' + data.instructor_names + '</div>');
+
                 HtmlUtils.setHtml(
                     this.$el,
                     this.tpl(data)
                 );
                 return this;
             }
-
         });
     });
 }(define || RequireJS.define));

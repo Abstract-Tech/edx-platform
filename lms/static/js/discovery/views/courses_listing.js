@@ -78,24 +78,31 @@
 
                 var currentCoursesItems = currentCourses.map(function(result) {
                     result.userPreferences = this.model.userPreferences;
-                    var item = new CourseCardView({model: result});
+                    result.attributes.instructor_names = result.attributes.instructor_names || 'Instructor: Not Available444';
+                    var item = new CourseCardView({ model: result });
                     return item.render().el;
                 }, this);
+                
+                
 
                 var upcomingCoursesItems = upcomingCourses.map(function(result) {
                     result.userPreferences = this.model.userPreferences;
+                    result.set('instructor_names', result.attributes.instructor_names || 'Instructor: Not Available555');
                     var item = new CourseCardView({model: result});
                     return item.render().el;
                 }, this);
+                
 
                 var selfPacedCoursesItems = selfPacedCourses.map(function(result) {
                     result.userPreferences = this.model.userPreferences;
+                    result.set('instructor_names', result.attributes.instructor_names || 'Instructor: Not Available6666');
                     var item = new CourseCardView({model: result});
                     return item.render().el;
                 }, this);
 
                 var pastCoursesItems = pastCourses.map(function(result) {
                     result.userPreferences = this.model.userPreferences;
+                    result.set('instructor_names', result.attributes.instructor_names || 'Instructor: Not Available6777');
                     var item = new CourseCardView({model: result});
                     return item.render().el;
                 }, this);

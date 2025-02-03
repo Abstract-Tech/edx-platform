@@ -8,15 +8,18 @@
                 course: '',
                 enrollment_start: '',
                 number: '',
+                instructor_names: '',
                 content: {
                     overview: '',
                     display_name: '',
-                    number: ''
+                    number: '',
+                    instructor_names: '',
                 },
                 start: '',
                 image_url: '',
                 org: '',
-                id: ''
+                id: '',
+                instructor_names: '',
             }
         });
     });
