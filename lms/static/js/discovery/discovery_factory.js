@@ -25,16 +25,35 @@
             // Instructor mapping logic
             var instructorMap = {}; // Store instructor names for each course
             var moochubApiUrl = '/api/moochub/v1/moochubinfo/';
+            var currentPage = 1; // Start from the first page
+            var totalPages = 1;
+
+            // Function to fetch all pages of the Moochub API
+            function fetchInstructorData(page) {
+                return $.getJSON(`${moochubApiUrl}?page=${page}`)
+                    .done(function (response) {
+                        totalPages = response.links.last ? parseInt(response.links.last.split('=')[1], 10) : 1;
+                        response.data.forEach(function (course) {
+                            const courseCode = course.attributes.courseCode || course.attributes.id;
+                            const instructors = course.attributes.instructor || [];
+                            instructorMap[courseCode] = instructors.map(i => i.name).join(', ') || 'Instructor: Not Available';
+                        });
+                        if (page < totalPages) {
+                            fetchInstructorData(page + 1); // Fetch the next page
+                        }
+                    })
+                    .fail(function () {
+                        console.error('Failed to fetch instructor data from Moochub API');
+                    });
+            }
 
             // Fetch instructor data from the Moochub API
-            $.getJSON(moochubApiUrl)
-                .done(function (response) {
-                    response.data.forEach(function (course) {
-                        const courseCode = course.attributes.courseCode || course.attributes.id;
-                        const instructors = course.attributes.instructor || [];
-                        instructorMap[courseCode] = instructors.map(i => i.name).join(', ') || 'Instructor: Not Available';
-                    });
-                    console.log('Instructor map loaded:', instructorMap);
+            fetchInstructorData(currentPage);
+
+            // Wait until all instructor data is fetched before initializing the listing
+            var interval = setInterval(function () {
+                if (Object.keys(instructorMap).length > 0 || currentPage > totalPages) {
+                    clearInterval(interval);
 
                     // Initialize the CoursesListing after instructor data is loaded
                     listing = new CoursesListing({ model: courseListingModel });
@@ -79,10 +98,8 @@
                     };
 
                     form.doSearch(searchQuery); // Start the search after initializing everything
-                })
-                .fail(function () {
-                    console.error('Failed to fetch instructor data from Moochub API');
-                });
+                }
+            }, 500); // Check every 500ms if instructor data is available
 
             dispatcher.listenTo(form, 'search', function (query) {
                 filters.reset();
