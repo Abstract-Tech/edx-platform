@@ -37,27 +37,32 @@
                 this.isLoading = false;
             },
 
-            sortCurrentCourses: function(course1, course2) {
-                var date1 = new Date(course1.attributes.end);
-                var date2 = new Date(course2.attributes.end);
-                return date1.getTime() - date2.getTime()
+            sortCoursesByStartDateDesc: function(course1, course2) {
+                var date1 = new Date(course1.attributes.start);
+                var date2 = new Date(course2.attributes.start);
+                return date2.getTime() - date1.getTime()
             },
 
             renderItems: function() {
                 /* eslint no-param-reassign: [2, { "props": true }] */
                 var latest = this.model.latest();
                 var currentDate = new Date();
+                var past6Weeks = new Date(new Date() - 1000*60*60*24*42)
                 var currentCourses = [];
                 var upcomingCourses = [];
                 var selfPacedCourses = [];
                 var pastCourses = [];
+                var currentCoursesSelfPaced = [];
+                var upcomingCoursesSelfPaced = [];
+
 
                 for (var i = 0; i < latest.length; i++) {
                     var course = latest[i];
-                    if (course.attributes.self_paced) {
+                    var course_start = new Date(course.attributes.start);
+
+                    if (course.attributes.self_paced  && (course_start <= past6Weeks)) {
                         selfPacedCourses.push(course);
                     } else {
-                        var course_start = new Date(course.attributes.start);
                         var course_end;
                         if (course.attributes.end === undefined) {
                             course_end = undefined;
@@ -65,16 +70,35 @@
                             course_end = new Date(course.attributes.end);
                         }
                         if ((course_start <= currentDate) && ((course_end >= currentDate) || (course_end === undefined))) {
+                            if(course.attributes.self_paced) {
+                                currentCoursesSelfPaced.push(course);
+                            }else{
                             currentCourses.push(course);
+                            }
                         } else if ((course_start > currentDate) && ((course_end >= currentDate) || (course_end === undefined))) {
-                            upcomingCourses.push(course);
-                        } else if ((course_start < currentDate) && ((course_end <= currentDate) || (course_end === undefined))) {
+                        
+                            if(course.attributes.self_paced) {
+                                upcomingCoursesSelfPaced.push(course);
+                            }else{
+                                upcomingCourses.push(course);
+                            }
+                        
+                        }
+                         else if ((course_start < currentDate) && ((course_end <= currentDate) || (course_end === undefined))) {
                             pastCourses.push(course);
                         }
                     }
                 }
 
-                currentCourses.sort(this.sortCurrentCourses);
+                console.log("before sorting");
+                console.log(`currentCourses: ${currentCourses} \n upcomingCourses: ${upcomingCourses} \n selfPacedCourses: ${selfPacedCourses} \n pastCourses: ${pastCourses}`);
+
+                currentCourses.sort(this.sortCoursesByStartDateDesc);
+                upcomingCourses.sort(this.sortCoursesByStartDateDesc);
+                selfPacedCourses.sort(this.sortCoursesByStartDateDesc);
+                pastCourses.sort(this.sortCoursesByStartDateDesc);
+                currentCoursesSelfPaced.sort(this.sortCoursesByStartDateDesc);
+                currentCourses = [ ...currentCourses, ...currentCoursesSelfPaced];
 
                 var currentCoursesItems = currentCourses.map(function(result) {
                     result.userPreferences = this.model.userPreferences;
@@ -84,6 +108,13 @@
                 }, this);
                 
                 
+
+                upcomingCourses = [ ...upcomingCourses, ...upcomingCoursesSelfPaced];   
+
+                console.log("after sorting");
+                console.log(`currentCourses: ${currentCourses} \n upcomingCourses: ${upcomingCourses} \n selfPacedCourses: ${selfPacedCourses} \n pastCourses: ${pastCourses}`);
+
+
 
                 var upcomingCoursesItems = upcomingCourses.map(function(result) {
                     result.userPreferences = this.model.userPreferences;
