@@ -20,18 +20,40 @@
                 this.courseCards = new Backbone.Collection([], { model: CourseCard });
                 this.facetOptions = new Backbone.Collection([], { model: FacetOption });
                 this.instructorMap = {}; // Map to store instructor data from the Moochub API
+                this.instructorDataLoaded = false; // Flag to indicate when the instructor data is fully loaded
 
-                // Fetch instructor data from the Moochub API
-                var self = this;
-                $.getJSON('/api/moochub/v1/moochubinfo/')
-                    .done(function (response) {
+                // Fetch instructor data with pagination
+                this.fetchInstructorData();
+            },
+
+            /**
+             * Fetch instructor data from the Moochub API with pagination.
+             */
+            fetchInstructorData: function () {
+                const self = this;
+                const moochubApiUrl = '/api/moochub/v1/moochubinfo/';
+
+                function fetchAllPages(url) {
+                    return $.getJSON(url).then(function (response) {
+                        // Process current page data
                         response.data.forEach(function (course) {
                             const courseCode = course.attributes.courseCode || course.attributes.id;
                             const instructors = course.attributes.instructor || [];
                             self.instructorMap[courseCode] = instructors.map(i => i.name).join(', ') || 'Instructor: Not Available';
                         });
-                        console.log('Instructor map loaded:', self.instructorMap);
+
+                        // Fetch next page if available
+                        if (response.links && response.links.next) {
+                            return fetchAllPages(response.links.next);
+                        }
+                    });
+                }
+
+                fetchAllPages(moochubApiUrl)
+                    .then(function () {
+                        self.instructorDataLoaded = true;
                         self.trigger('instructorMap:loaded');
+                        console.log('Instructor map fully loaded:', self.instructorMap);
                     })
                     .fail(function () {
                         console.error('Failed to fetch instructor data from Moochub API');
@@ -48,6 +70,8 @@
 
                     // Match courseCode from the discovery API with the Moochub API's courseCode
                     var courseCode = attributes.number || attributes.id;
+
+                    // Use instructor names from the instructorMap
                     attributes.instructor_names = this.instructorMap[courseCode] || 'Instructor: Not Available';
 
                     return attributes;
@@ -72,6 +96,9 @@
                         }, { merge: true });
                     });
                 });
+
+                // Log for debugging
+                console.log('Parsed course data with instructor names:', this.courseCards);
             },
 
             reset: function () {
