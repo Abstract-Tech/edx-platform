@@ -22,24 +22,30 @@
                 userTimezone: userTimezone
             };
 
-            // Instructor mapping logic
+            // Instructor mapping logic with pagination
             var instructorMap = {}; // Store instructor names for each course
             var moochubApiUrl = '/api/moochub/v1/moochubinfo/';
-            var currentPage = 1; // Start from the first page
-            var totalPages = 1;
 
-            // Function to fetch all pages of the Moochub API
-            function fetchInstructorData(page) {
-                return $.getJSON(`${moochubApiUrl}?page=${page}`)
+            /**
+             * Fetch all pages recursively and populate the instructorMap.
+             */
+            function fetchAllPages(url, onComplete) {
+                $.getJSON(url)
                     .done(function (response) {
-                        totalPages = response.links.last ? parseInt(response.links.last.split('=')[1], 10) : 1;
+                        // Process the current page data
                         response.data.forEach(function (course) {
                             const courseCode = course.attributes.courseCode || course.attributes.id;
                             const instructors = course.attributes.instructor || [];
                             instructorMap[courseCode] = instructors.map(i => i.name).join(', ') || 'Instructor: Not Available';
                         });
-                        if (page < totalPages) {
-                            fetchInstructorData(page + 1); // Fetch the next page
+
+                        // Check if there is a next page and recursively fetch
+                        if (response.links && response.links.next) {
+                            fetchAllPages(response.links.next, onComplete);
+                        } else {
+                            // No more pages, trigger the completion callback
+                            console.log('Instructor map fully loaded:', instructorMap);
+                            if (onComplete) onComplete();
                         }
                     })
                     .fail(function () {
@@ -47,59 +53,52 @@
                     });
             }
 
-            // Fetch instructor data from the Moochub API
-            fetchInstructorData(currentPage);
+            // Initialize the application after loading all instructor data
+            fetchAllPages(moochubApiUrl, function () {
+                // Initialize the CoursesListing after instructor data is loaded
+                listing = new CoursesListing({ model: courseListingModel });
 
-            // Wait until all instructor data is fetched before initializing the listing
-            var interval = setInterval(function () {
-                if (Object.keys(instructorMap).length > 0 || currentPage > totalPages) {
-                    clearInterval(interval);
+                dispatcher.listenTo(listing, 'next', function () {
+                    search.loadNextPage();
+                });
 
-                    // Initialize the CoursesListing after instructor data is loaded
-                    listing = new CoursesListing({ model: courseListingModel });
+                dispatcher.listenTo(search, 'next', function () {
+                    listing.renderNext();
+                });
 
-                    dispatcher.listenTo(listing, 'next', function () {
-                        search.loadNextPage();
-                    });
-
-                    dispatcher.listenTo(search, 'next', function () {
-                        listing.renderNext();
-                    });
-
-                    dispatcher.listenTo(search, 'search', function (query, total) {
-                        if (total > 0) {
-                            form.showFoundMessage(total);
-                            if (query) {
-                                filters.add(
-                                    { type: 'search_query', query: query, name: quote(query) },
-                                    { merge: true }
-                                );
-                            }
-                        } else {
-                            form.showNotFoundMessage(query);
-                            filters.reset();
+                dispatcher.listenTo(search, 'search', function (query, total) {
+                    if (total > 0) {
+                        form.showFoundMessage(total);
+                        if (query) {
+                            filters.add(
+                                { type: 'search_query', query: query, name: quote(query) },
+                                { merge: true }
+                            );
                         }
-                        form.hideLoadingIndicator();
-                        listing.render();
-                        refineSidebar.render();
+                    } else {
+                        form.showNotFoundMessage(query);
+                        filters.reset();
+                    }
+                    form.hideLoadingIndicator();
+                    listing.render();
+                    refineSidebar.render();
+                });
+
+                // Modify the CoursesListing to include instructor names
+                var originalRender = listing.render;
+                listing.render = function () {
+                    // Inject instructor names into the course data
+                    courseListingModel.courseCards.each(function (course) {
+                        var courseCode = course.get('number') || course.get('id');
+                        course.set('instructor_names', instructorMap[courseCode] || 'Instructor: Not Available');
                     });
 
-                    // Modify the CoursesListing to include instructor names
-                    var originalRender = listing.render;
-                    listing.render = function () {
-                        // Inject instructor names into the course data
-                        courseListingModel.courseCards.each(function (course) {
-                            var courseCode = course.get('number') || course.get('id');
-                            course.set('instructor_names', instructorMap[courseCode] || 'Instructor: Not Available');
-                        });
+                    // Call the original render function
+                    return originalRender.apply(listing, arguments);
+                };
 
-                        // Call the original render function
-                        return originalRender.apply(listing, arguments);
-                    };
-
-                    form.doSearch(searchQuery); // Start the search after initializing everything
-                }
-            }, 500); // Check every 500ms if instructor data is available
+                form.doSearch(searchQuery); // Start the search after initializing everything
+            });
 
             dispatcher.listenTo(form, 'search', function (query) {
                 filters.reset();
