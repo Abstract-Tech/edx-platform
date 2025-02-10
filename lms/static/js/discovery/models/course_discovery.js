@@ -32,33 +32,34 @@
             fetchInstructorData: function () {
                 const self = this;
                 const moochubApiUrl = '/api/moochub/v1/moochubinfo/';
-
-                function fetchAllPages(url) {
-                    return $.getJSON(url).then(function (response) {
+            
+                async function fetchAllPages(url) {
+                    try {
+                        const response = await $.getJSON(url);
+            
                         // Process current page data
-                        response.data.forEach(function (course) {
+                        response.data.forEach(course => {
                             const courseCode = course.attributes.courseCode || course.attributes.id;
                             const instructors = course.attributes.instructor || [];
                             self.instructorMap[courseCode] = instructors.map(i => i.name).join(', ') || 'Instructor: Not Available';
                         });
-
+            
                         // Fetch next page if available
                         if (response.links && response.links.next) {
-                            return fetchAllPages(response.links.next);
+                            await fetchAllPages(response.links.next); // Properly await next page
                         }
-                    });
+                    } catch (error) {
+                        console.error('Failed to fetch instructor data:', error);
+                    }
                 }
-
-                fetchAllPages(moochubApiUrl)
-                    .then(function () {
-                        self.instructorDataLoaded = true;
-                        self.trigger('instructorMap:loaded');
-                        console.log('Instructor map fully loaded:', self.instructorMap);
-                    })
-                    .fail(function () {
-                        console.error('Failed to fetch instructor data from Moochub API');
-                    });
+            
+                fetchAllPages(moochubApiUrl).then(() => {
+                    self.instructorDataLoaded = true;
+                    self.trigger('instructorMap:loaded');
+                    console.log('Instructor map fully loaded:', self.instructorMap);
+                });
             },
+            
 
             parse: function (response) {
                 var courses = response.results || [];
