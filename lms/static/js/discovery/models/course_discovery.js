@@ -34,6 +34,7 @@
                 const moochubApiUrl = '/api/moochub/v1/moochubinfo/';
             
                 async function fetchAllPages(url) {
+                    console.log("fetch instuctor pages")
                     try {
                         const response = await $.getJSON(url);
             
@@ -46,6 +47,7 @@
             
                         // Fetch next page if available
                         if (response.links && response.links.next) {
+                            console.log("there is another page")
                             await fetchAllPages(response.links.next); // Properly await next page
                         }
                     } catch (error) {
