@@ -40,13 +40,15 @@
                         });
 
                         // Check if there is a next page and recursively fetch
-                        if (response.links && response.links.next) {
+                        if (response.links && response.links.next && response.links.next.length > 0) {
+                            console.log('Next page found:', response.links.next);
                             fetchAllPages(response.links.next, onComplete);
                         } else {
                             // No more pages, trigger the completion callback
                             console.log('Instructor map fully loaded:', instructorMap);
                             if (onComplete) onComplete();
                         }
+
                     })
                     .fail(function () {
                         console.error('Failed to fetch instructor data from Moochub API');
