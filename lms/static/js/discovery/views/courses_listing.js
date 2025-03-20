@@ -289,3 +289,152 @@
         });
     });
 }(define || RequireJS.define));
+
+
+console.log("Optimized Moochub LMS Script");
+
+let pagesFetched = new Set();
+let fetchTimeout;
+const minCoursesThreshold = 5; // Avoid fetching for every single mutation
+
+// Cache course elements to reduce querySelectorAll calls
+const courseElementsMap = new Map();
+
+const fetchData = async function (page) {
+    page = page || 1;
+
+    if (pagesFetched.has(page)) {
+        console.log("Page " + page + " already fetched, skipping.");
+        return;
+    }
+
+    try {
+        console.log("Fetching page " + page + "...");
+        const response = await fetch("/api/moochub/v1/moochubinfo/?page=" + page);
+
+        if (!response.ok) throw new Error("Failed to fetch page " + page + ": " + response.statusText);
+
+        const data = await response.json();
+        if (!data || !data.data || !data.data.length) {
+            console.warn("No valid data found on page " + page + ".");
+            return;
+        }
+
+        pagesFetched.add(page);
+        console.log("Page " + page + " fetched successfully.");
+
+        processCourses(data.data);
+
+        if (data.links && data.links.next) {
+            var url = new URL(data.links.next);
+            var nextPage = url.searchParams.get("page");
+            if (nextPage && !pagesFetched.has(parseInt(nextPage, 10))) {
+                fetchData(parseInt(nextPage, 10));
+            }
+        }
+    } catch (error) {
+        console.error("Error fetching data:", error.message);
+    }
+};
+
+// Efficiently process and update course elements
+function processCourses(courses) {
+    var fragment = document.createDocumentFragment();
+
+    courses.forEach(function (course) {
+        var courseName = course.attributes && course.attributes.name;
+        if (!courseName) return;
+
+        // Use cached elements or find and store them
+        if (!courseElementsMap.has(courseName)) {
+            var courseCards = document.querySelectorAll(
+                "article[aria-label='" + courseName.replace(/'/g, "&apos;") + "']"
+            );
+            courseElementsMap.set(courseName, courseCards);
+        }
+
+        var courseCards = courseElementsMap.get(courseName);
+        if (!courseCards) return;
+
+        courseCards.forEach(function (courseCard) {
+            if (courseCard.querySelector(".course-instructors")) return; // Avoid duplicate inserts
+
+            var instructors = new Set();
+
+            // Collect instructors
+            if (Array.isArray(course.attributes && course.attributes.instructor)) {
+                course.attributes.instructor.forEach(function (inst) {
+                    if (inst.name) instructors.add(inst.name.trim());
+                });
+            }
+            if (Array.isArray(course.attributes && course.attributes.creator)) {
+                course.attributes.creator.forEach(function (creator) {
+                    if (creator.image && creator.image.license) {
+                        creator.image.license.forEach(function (license) {
+                            if (Array.isArray(license.instructor)) {
+                                license.instructor.forEach(function (inst) {
+                                    if (inst.name) instructors.add(inst.name.trim());
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            if (instructors.size > 0) {
+                var instructorDiv = document.createElement("div");
+                instructorDiv.className = "course-instructors";
+                instructorDiv.innerHTML =
+                    "<strong>" +
+                    "<img src='/static/uds-theme/images/UDS-instructor-icon.svg' " +
+                    "alt='instructor-icon' style='width:20px; height:20px; margin-right:5px;'/>" +
+                    "</strong> " +
+                    Array.from(instructors).join(", ");
+
+                var courseInfo = courseCard.querySelector(".course-info");
+                if (courseInfo) {
+                    courseInfo.appendChild(instructorDiv);
+                } else {
+                    var courseLink = courseCard.querySelector("a");
+                    if (courseLink) {
+                        courseLink.appendChild(instructorDiv);
+                    }
+                }
+
+                fragment.appendChild(courseCard);
+            }
+        });
+    });
+
+    document.body.appendChild(fragment);
+}
+
+// Debounce fetch calls to prevent excessive network requests
+function debounceFetchData() {
+    clearTimeout(fetchTimeout);
+    fetchTimeout = setTimeout(function () {
+        fetchData();
+    }, 500);
+}
+
+// Run fetchData on initial load
+fetchData();
+
+// Improved MutationObserver
+var observer = new MutationObserver(function (mutations) {
+    var newCoursesCount = 0;
+
+    mutations.forEach(function (mutation) {
+        newCoursesCount += Array.prototype.filter.call(mutation.addedNodes, function (node) {
+            return node.nodeType === 1 && node.matches("article[aria-label]");
+        }).length;
+    });
+
+    if (newCoursesCount >= minCoursesThreshold) {
+        debounceFetchData();
+    }
+});
+
+// Observe only the main content area instead of the entire document
+var mainContent = document.querySelector("#course-container") || document.body;
+observer.observe(mainContent, { childList: true, subtree: true });
