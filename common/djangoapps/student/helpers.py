@@ -662,6 +662,8 @@ def _is_certificate_earned_but_not_available(course_overview, status):
             course_overview.certificate_available_date
         )
 
+logger = logging.getLogger(__name__)
+
 
 def process_survey_link(survey_link, user):
     """
@@ -680,6 +682,8 @@ def do_create_account(form, custom_form=None):
 
     Note: this function is also used for creating test users.
     """
+    logger.info("test form data 1212121211211212")
+    logger.info(form)
     # Check if ALLOW_PUBLIC_ACCOUNT_CREATION flag turned off to restrict user account creation
     if not configuration_helpers.get_value(
             'ALLOW_PUBLIC_ACCOUNT_CREATION',
