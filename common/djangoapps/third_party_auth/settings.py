@@ -33,7 +33,7 @@ def apply_settings(django_settings):
     django_settings.SOCIAL_AUTH_LOGIN_ERROR_URL = '/'
 
     # Where to send the user once social authentication is successful.
-    django_settings.SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/dashboard'
+    django_settings.SOCIAL_AUTH_LOGIN_REDIRECT_URL = 'https://apps.lms.german-uds.academy/learner-dashboard/'
 
     # Disable sanitizing of redirect urls in social-auth since the platform
     # already does its own sanitization via the LOGIN_REDIRECT_WHITELIST setting.
