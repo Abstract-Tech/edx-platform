@@ -164,15 +164,15 @@
             _.each(quartersToShow, function(qObj, idx) {
                 var headingTitle = (idx === 0) ? "Current modules and micro-degrees" : "Upcoming modules and micro-degrees";
                 var quarterLabel = qObj.label;
+                var quarterLabelDescription = "The courses are modules of our M.Sc. and MBA programs. However, anyone can book these courses as stand-alone Micro Degree programs for a fee of €900.";
 
                 var itemsHtml = "";
                 _.each(quarterToCourses[qObj.label], function(courseModel) {
                     var cardView = new CourseCardView({ model: courseModel });
                     itemsHtml += '<li class="courses-listing-item">' + cardView.render().el.outerHTML + '</li>';
                 });
-            
+                 console.log("Items ",itemsHtml)
                 if (itemsHtml !== "") {
-                    var quarterLabelDescription = "The courses are modules of our M.Sc. and MBA programs. However, anyone can book these courses as stand-alone Micro Degree programs for a fee of €900.";
                     console.log("Rendering quarter:", qObj.label);
                     // finalHtml += `...`;
                     finalHtml += '<div class="quarter-section">';
