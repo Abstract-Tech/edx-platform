@@ -172,8 +172,10 @@
                     // itemsHtml += '<li class="courses-listing-item">' + cardView.render().el.outerHTML + '</li>';
                     var rendered = cardView.render().el.outerHTML;
                     // Only include cards that rendered actual content
-                    if (rendered.trim()) {
+                    if (rendered && rendered.trim().length > 0 && rendered.includes("course-card")) {
                         itemsHtml += '<li class="courses-listing-item">' + rendered + '</li>';
+                    } else {
+                        console.warn("Skipped empty or improperly rendered course:", courseModel.attributes.title);
                     }
                 });
               
