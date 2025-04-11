@@ -668,7 +668,22 @@ class CourseEnrollment(models.Model):
             raise EnrollmentNotAllowed(str(exc)) from exc
 
         if mode is None:
-            mode = _default_course_mode(str(course_key))
+            if course_key.org.lower() == 'lms':
+                mode = CourseMode.PROFESSIONAL
+                # Ensure mode exists in DB
+                CourseMode.objects.get_or_create(
+                    course_id=course_key,
+                    mode_slug=mode,
+                    defaults={
+                        'mode_display_name': 'Professional',
+                        'min_price': 10,
+                        'currency': 'usd',
+                    }
+                )
+            else:
+                # Fallback to default logic
+                mode = _default_course_mode(str(course_key))
+                
         # All the server-side checks for whether a user is allowed to enroll.
         try:
             course = CourseOverview.get_from_id(course_key)
