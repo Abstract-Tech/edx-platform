@@ -164,25 +164,30 @@
             _.each(quartersToShow, function(qObj, idx) {
                 var headingTitle = (idx === 0) ? "Current modules and micro-degrees" : "Upcoming modules and micro-degrees";
                 var quarterLabel = qObj.label;
-                
 
                 var itemsHtml = "";
                 _.each(quarterToCourses[qObj.label], function(courseModel) {
-                    var cardView = new CourseCardView({ model: courseModel });
-                    // itemsHtml += '<li class="courses-listing-item">' + cardView.render().el.outerHTML + '</li>';
-                    var rendered = cardView.render().el.outerHTML;
-                    // Only include cards that rendered actual content
-                    if (rendered && rendered.trim().length > 0 && rendered.includes("course-card")) {
-                        itemsHtml += '<li class="courses-listing-item">' + rendered + '</li>';
+                    if (courseModel && courseModel.attributes) {
+                        try {
+                            var cardView = new CourseCardView({ model: courseModel });
+                            var rendered = cardView.render().el.outerHTML;
+
+                            if (rendered && rendered.trim().length > 0 && rendered.includes("course-card")) {
+                                itemsHtml += '<li class="courses-listing-item">' + rendered + '</li>';
+                            } else {
+                                console.warn("Skipped empty or improperly rendered course:", courseModel.attributes.title || "(no title)");
+                            }
+                        } catch (error) {
+                            console.error("Error rendering course card:", courseModel, error);
+                        }
                     } else {
                         console.warn("Skipped empty or improperly rendered course:", courseModel.attributes.title);
                     }
                 });
-              
+
                 if (itemsHtml) {
                     var quarterLabelDescription = "The courses are modules of our M.Sc. and MBA programs. However, anyone can book these courses as stand-alone Micro Degree programs for a fee of €900.";
                     console.log("Rendering quarter:", qObj.label);
-                    // finalHtml += `...`;
                     finalHtml += '<div class="quarter-section">';
                     finalHtml += '<h2 class="quarter-label">' + headingTitle + ': ' + quarterLabel + '</h2>';
                     finalHtml += '<p class="quarter-label-description">' + quarterLabelDescription + '</p>';
@@ -191,9 +196,8 @@
                 } else {
                     console.log("Skipping quarter with no valid courses:", qObj.label);
                 }
-
-                
             });
+
 
             var $container = this.$el.find('.courses-listing.courses-list');
             if (!$container.length) {
