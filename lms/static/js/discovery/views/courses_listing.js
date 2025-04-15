@@ -54,159 +54,177 @@
                 var d2 = new Date(course2.attributes.end);
                 return d1 - d2;
             },
+            
 
             renderQuarterBasedItems: function() {
-            var latest = this.model.latest();
-            var currentDate = new Date();
-
-            function getQuarterInfo(dateObj) {
-                var month = dateObj.getMonth();
-                var year = dateObj.getFullYear();
-                var quarterIndex, label, startMonth, endMonth;
-
-                if (month >= 0 && month <= 2) {
-                    quarterIndex = 1;
-                    label = "January - March " + year;
-                    startMonth = 0; endMonth = 2;
-                } else if (month >= 3 && month <= 5) {
-                    quarterIndex = 2;
-                    label = "April - June " + year;
-                    startMonth = 3; endMonth = 5;
-                } else if (month >= 6 && month <= 8) {
-                    quarterIndex = 3;
-                    label = "July - September " + year;
-                    startMonth = 6; endMonth = 8;
-                } else {
-                    quarterIndex = 4;
-                    label = "October - December " + year;
-                    startMonth = 9; endMonth = 11;
-                }
-
-                return {
-                    quarterIndex: quarterIndex,
-                    year: year,
-                    startMonth: startMonth,
-                    endMonth: endMonth,
-                    label: label
-                };
-            }
-
-            function quarterIndexToQuarterInfo(qIdx, year) {
-                var label = "", startMonth = 0, endMonth = 0;
-                if (qIdx === 1) {
-                    label = "January - March " + year;
-                    startMonth = 0; endMonth = 2;
-                } else if (qIdx === 2) {
-                    label = "April - June " + year;
-                    startMonth = 3; endMonth = 5;
-                } else if (qIdx === 3) {
-                    label = "July - September " + year;
-                    startMonth = 6; endMonth = 8;
-                } else {
-                    label = "October - December " + year;
-                    startMonth = 9; endMonth = 11;
-                }
-                return {
-                    quarterIndex: qIdx,
-                    year: year,
-                    startMonth: startMonth,
-                    endMonth: endMonth,
-                    label: label
-                };
-            }
-
-            function getNextNQuarters(baseQuarter, n) {
-                var arr = [];
-                var qIndex = baseQuarter.quarterIndex;
-                var yr = baseQuarter.year;
-
-                for (var i = 0; i < n; i++) {
-                    var qObj = quarterIndexToQuarterInfo(qIndex, yr);
-                    arr.push(qObj);
-                    qIndex++;
-                    if (qIndex > 4) {
-                        qIndex = 1;
-                        yr++;
-                    }
-                }
-                return arr;
-            }
-
-            var nowQuarter = getQuarterInfo(currentDate);
-            var quartersToShow = getNextNQuarters(nowQuarter, 4);
-
-            var quarterToCourses = {};
-            _.each(quartersToShow, function(q) {
-                quarterToCourses[q.label] = [];
-            });
-
-            for (var i = 0; i < latest.length; i++) {
-                var course = latest[i];
-                if (course.attributes.self_paced) {
-                    continue;
-                }
-
-                var startDate = new Date(course.attributes.start);
-                for (var j = 0; j < quartersToShow.length; j++) {
-                    var qInfo = quartersToShow[j];
-                    var startBoundary = new Date(qInfo.year, qInfo.startMonth, 1, 0, 0, 0);
-                    var lastDay = new Date(qInfo.year, qInfo.endMonth + 1, 0).getDate();
-                    var endBoundary = new Date(qInfo.year, qInfo.endMonth, lastDay, 23, 59, 59);
-
-                    if (startDate >= startBoundary && startDate <= endBoundary) {
-                        quarterToCourses[qInfo.label].push(course);
-                        break;
-                    }
-                }
-            }
-
-            var finalHtml = "";
-            _.each(quartersToShow, function(qObj, idx) {
-                var headingTitle = (idx === 0) ? "Current modules and micro-degrees" : "Upcoming modules and micro-degrees";
-                var quarterLabel = qObj.label;
-
-                var itemsHtml = "";
-                _.each(quarterToCourses[qObj.label], function(courseModel) {
-                    if (courseModel && courseModel.attributes) {
-                        try {
-                            var cardView = new CourseCardView({ model: courseModel });
-                            var rendered = cardView.render().el.outerHTML;
-
-                            if (rendered && rendered.trim().length > 0 && rendered.includes("course-card")) {
-                                itemsHtml += '<li class="courses-listing-item">' + rendered + '</li>';
-                            } else {
-                                console.warn("Skipped empty or improperly rendered course:", courseModel.attributes.title || "(no title)");
-                            }
-                        } catch (error) {
-                            console.error("Error rendering course card:", courseModel, error);
-                        }
+                var latest = this.model.latest();
+                var currentDate = new Date();
+                console.log("Total courses received:", latest.length);
+            
+                function getQuarterInfo(dateObj) {
+                    var month = dateObj.getMonth();
+                    var year = dateObj.getFullYear();
+                    var quarterIndex, label, startMonth, endMonth;
+            
+                    if (month >= 0 && month <= 2) {
+                        quarterIndex = 1;
+                        label = "January - March " + year;
+                        startMonth = 0; endMonth = 2;
+                    } else if (month >= 3 && month <= 5) {
+                        quarterIndex = 2;
+                        label = "April - June " + year;
+                        startMonth = 3; endMonth = 5;
+                    } else if (month >= 6 && month <= 8) {
+                        quarterIndex = 3;
+                        label = "July - September " + year;
+                        startMonth = 6; endMonth = 8;
                     } else {
-                        console.warn("Skipped empty or improperly rendered course:", courseModel.attributes.title);
+                        quarterIndex = 4;
+                        label = "October - December " + year;
+                        startMonth = 9; endMonth = 11;
+                    }
+            
+                    return {
+                        quarterIndex: quarterIndex,
+                        year: year,
+                        startMonth: startMonth,
+                        endMonth: endMonth,
+                        label: label
+                    };
+                }
+            
+                function quarterIndexToQuarterInfo(qIdx, year) {
+                    var label = "", startMonth = 0, endMonth = 0;
+                    if (qIdx === 1) {
+                        label = "January - March " + year;
+                        startMonth = 0; endMonth = 2;
+                    } else if (qIdx === 2) {
+                        label = "April - June " + year;
+                        startMonth = 3; endMonth = 5;
+                    } else if (qIdx === 3) {
+                        label = "July - September " + year;
+                        startMonth = 6; endMonth = 8;
+                    } else {
+                        label = "October - December " + year;
+                        startMonth = 9; endMonth = 11;
+                    }
+                    return {
+                        quarterIndex: qIdx,
+                        year: year,
+                        startMonth: startMonth,
+                        endMonth: endMonth,
+                        label: label
+                    };
+                }
+            
+                function getNextNQuarters(baseQuarter, n) {
+                    var arr = [];
+                    var qIndex = baseQuarter.quarterIndex;
+                    var yr = baseQuarter.year;
+            
+                    for (var i = 0; i < n; i++) {
+                        var qObj = quarterIndexToQuarterInfo(qIndex, yr);
+                        arr.push(qObj);
+                        qIndex++;
+                        if (qIndex > 4) {
+                            qIndex = 1;
+                            yr++;
+                        }
+                    }
+                    return arr;
+                }
+            
+                var nowQuarter = getQuarterInfo(currentDate);
+                var quartersToShow = getNextNQuarters(nowQuarter, 4);
+            
+                var quarterToCourses = {};
+                _.each(quartersToShow, function(q) {
+                    quarterToCourses[q.label] = [];
+                });
+            
+                for (var i = 0; i < latest.length; i++) {
+                    var course = latest[i];
+            
+                    // ✅ SKIP if missing essential data
+                    var content = course.attributes && course.attributes.content;
+                    var displayName = content && content.display_name;
+
+                    if (!displayName || !course.attributes.start || course.attributes.self_paced) {
+                        console.warn("Skipping course due to missing/invalid data:", course.attributes);
+                        continue;
+                    }
+                    
+
+            
+                    var startDate = new Date(course.attributes.start);
+
+                    for (var j = 0; j < quartersToShow.length; j++) {
+                        var qInfo = quartersToShow[j];
+                        var startBoundary = new Date(qInfo.year, qInfo.startMonth, 1, 0, 0, 0);
+                        var lastDay = new Date(qInfo.year, qInfo.endMonth + 1, 0).getDate();
+                        var endBoundary = new Date(qInfo.year, qInfo.endMonth, lastDay, 23, 59, 59);
+            
+                        if (startDate >= startBoundary && startDate <= endBoundary) {
+                            quarterToCourses[qInfo.label].push(course);
+                            break;
+                        }
+                    }
+                }
+            
+                var finalHtml = "";
+                _.each(quartersToShow, function(qObj, idx) {
+                    var headingTitle = (idx === 0) ? "Current modules and micro-degrees" : "Upcoming modules and micro-degrees";
+                    var quarterLabel = qObj.label;
+            
+                    var itemsHtml = "";
+
+                    _.each(quarterToCourses[qObj.label], function(courseModel) {
+                        var cardView = new CourseCardView({ model: courseModel });
+                        var renderedEl = cardView.render().el;
+            
+                        // ✅ CHECK IF CARD IS VISUALLY VALID
+                        var cardHtml = renderedEl && renderedEl.outerHTML ? renderedEl.outerHTML.trim() : "";
+
+                        if (cardHtml && cardHtml.length > 50 && !cardHtml.includes('<li class="courses-listing-item"></li>')) {
+                            itemsHtml += '<li class="courses-listing-item">' + cardHtml + '</li>';
+                        } else {
+                            console.warn("❌ Skipped rendering due to invalid/malformed card content:", courseModel.attributes.title || 'Unnamed');
+                        }
+                                                
+                    });
+            
+                    if (itemsHtml !== "") {
+                        var quarterLabelDescription = "The courses are modules of our M.Sc. and MBA programs. However, anyone can book these courses as stand-alone Micro Degree programs for a fee of €900.";
+            
+                        finalHtml += '<div class="quarter-section">';
+                        finalHtml += '<h2 class="quarter-label">' + headingTitle + ': ' + quarterLabel + '</h2>';
+                        finalHtml += '<p class="quarter-label-description">' + quarterLabelDescription + '</p>';
+                        finalHtml += '<ul class="courses-listing courses-list">' + itemsHtml + '</ul>';
+                        finalHtml += '</div>';
+                    } else {
+                        console.log("❌ No valid items to render for quarter:", quarterLabel);
+                    }
+                });
+            
+                var $container = this.$el.find('.courses-listing.courses-list');
+                if (!$container.length) {
+                    $container = this.$el;
+                }
+                $container.empty();
+                $container.append(finalHtml);
+
+            
+                $container.find('li.courses-listing-item').each(function() {
+                    if ($(this).is(':empty') || $(this).text().trim() === '') {
+                        console.warn("🧹 Removing empty course listing item");
+                        $(this).remove();
                     }
                 });
 
-                if (itemsHtml) {
-                    var quarterLabelDescription = "The courses are modules of our M.Sc. and MBA programs. However, anyone can book these courses as stand-alone Micro Degree programs for a fee of €900.";
-                    console.log("Rendering quarter:", qObj.label);
-                    finalHtml += '<div class="quarter-section">';
-                    finalHtml += '<h2 class="quarter-label">' + headingTitle + ': ' + quarterLabel + '</h2>';
-                    finalHtml += '<p class="quarter-label-description">' + quarterLabelDescription + '</p>';
-                    finalHtml += '<ul class="courses-listing courses-list">' + itemsHtml + '</ul>';
-                    finalHtml += '</div>';
-                } else {
-                    console.log("Skipping quarter with no valid courses:", qObj.label);
-                }
-            });
 
-
-            var $container = this.$el.find('.courses-listing.courses-list');
-            if (!$container.length) {
-                $container = this.$el;
-            }
-            $container.empty();
-            $container.append(finalHtml);
-        },
+            },
             
+        
 
             renderOriginalItems: function() {
                 var latest = this.model.latest();
