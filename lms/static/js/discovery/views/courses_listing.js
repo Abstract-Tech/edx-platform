@@ -136,6 +136,7 @@
             
                 var nowQuarter = getQuarterInfo(currentDate);
                 var quartersToShow = getNextNQuarters(nowQuarter, 4);
+                console.log("Quarters to show:", quartersToShow.map(q => q.label));
             
                 var quarterToCourses = {};
                 _.each(quartersToShow, function(q) {
@@ -157,6 +158,7 @@
 
             
                     var startDate = new Date(course.attributes.start);
+                    console.log(`✅ Course: "${displayName}" starts on ${startDate.toISOString()}`);
 
                     for (var j = 0; j < quartersToShow.length; j++) {
                         var qInfo = quartersToShow[j];
@@ -166,6 +168,7 @@
             
                         if (startDate >= startBoundary && startDate <= endBoundary) {
                             quarterToCourses[qInfo.label].push(course);
+                            console.log(`→ Assigned to quarter: ${qInfo.label}`);
                             break;
                         }
                     }
@@ -178,6 +181,7 @@
             
                     var itemsHtml = "";
 
+                    console.log(`Rendering quarter section: ${quarterLabel} with ${quarterToCourses[quarterLabel].length} courses`);
                     _.each(quarterToCourses[qObj.label], function(courseModel) {
                         var cardView = new CourseCardView({ model: courseModel });
                         var renderedEl = cardView.render().el;
@@ -213,13 +217,16 @@
                 $container.empty();
                 $container.append(finalHtml);
 
-            
+                // 🔥 Remove empty course listing <li> tags manually
                 $container.find('li.courses-listing-item').each(function() {
-                    if ($(this).is(':empty') || $(this).text().trim() === '') {
-                        console.warn("🧹 Removing empty course listing item");
+                    const html = $(this).html().trim();
+                    const text = $(this).text().trim();
+                    if (!html || !text || html === '' || text.length < 5) {
+                        console.warn("🧹 Removing empty or invalid course listing item:", html);
                         $(this).remove();
                     }
                 });
+                
 
 
             },
