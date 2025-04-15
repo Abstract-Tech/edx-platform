@@ -218,14 +218,14 @@
                 $container.append(finalHtml);
 
                 // 🔥 Remove empty course listing <li> tags manually
-                $container.find('li.courses-listing-item').each(function() {
-                    const html = $(this).html().trim();
-                    const text = $(this).text().trim();
-                    if (!html || !text || html === '' || text.length < 5) {
-                        console.warn("🧹 Removing empty or invalid course listing item:", html);
-                        $(this).remove();
-                    }
-                });
+                // $container.find('li.courses-listing-item').each(function() {
+                //     const html = $(this).html().trim();
+                //     const text = $(this).text().trim();
+                //     if (!html || !text || html === '' || text.length < 5) {
+                //         console.warn("🧹 Removing empty or invalid course listing item:", html);
+                //         $(this).remove();
+                //     }
+                // });
                 
 
 
