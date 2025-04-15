@@ -218,17 +218,18 @@
                 $container.append(finalHtml);
 
                 // 🔥 Remove empty course listing <li> tags manually
-                $container.find('li.courses-listing-item').each(function() {
-                    const courseName = $(this).find('.course-name span').text().trim();
-                    const courseImage = $(this).find('img').attr('src');
+                $container.find('li.courses-listing-item').each(function () {
+                    const $el = $(this);
+                    const name = $el.find('.course-name span').text().trim() || $el.find('article.course').attr('aria-label');
+                    const image = $el.find('img').attr('src');
                 
-                    const isValid = courseName && courseImage;
-                
+                    const isValid = name && image;
                     if (!isValid) {
-                        console.warn("🧹 Removing broken or empty course card:", courseName || "No name");
-                        $(this).remove();
+                        console.warn("🧹 Removing broken or empty course card:", name || "No name");
+                        $el.remove();
                     }
                 });
+                
                 
                 
 
