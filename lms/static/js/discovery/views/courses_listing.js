@@ -220,15 +220,17 @@
                 // 🔥 Remove empty course listing <li> tags manually
                 $container.find('li.courses-listing-item').each(function () {
                     const $el = $(this);
-                    const name = $el.find('.course-name span').text().trim() || $el.find('article.course').attr('aria-label');
+                    const article = $el.find('article.course');
+                    const name = $el.find('.course-name span').text().trim() || article.attr('aria-label');
                     const image = $el.find('img').attr('src');
-                
+
                     const isValid = name && image;
                     if (!isValid) {
-                        console.warn("🧹 Removing broken or empty course card:", name || "No name");
+                        console.warn(" Removing broken or empty course card:", name || "No name");
                         $el.remove();
                     }
                 });
+
                 
                 
                 
