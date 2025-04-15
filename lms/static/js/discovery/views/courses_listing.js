@@ -150,10 +150,11 @@
                     var content = course.attributes && course.attributes.content;
                     var displayName = content && content.display_name;
 
-                    if (!displayName || !course.attributes.start || course.attributes.self_paced) {
-                        console.warn("Skipping course due to missing/invalid data:", course.attributes);
+                    if (!displayName || course.attributes.self_paced) {
+                        console.warn("Skipping course due to missing display name or self-paced course:", course.attributes);
                         continue;
                     }
+                    console.log(`⛔️ Skipped ${skippedCount} courses due to missing display name or being self-paced`);
                     
 
             
@@ -196,7 +197,7 @@
                         }
                                                 
                     });
-            
+                    console.log(`✅ Rendered ${renderedCount} valid course cards for quarter: ${quarterLabel}`);
                     if (itemsHtml !== "") {
                         var quarterLabelDescription = "The courses are modules of our M.Sc. and MBA programs. However, anyone can book these courses as stand-alone Micro Degree programs for a fee of €900.";
             
