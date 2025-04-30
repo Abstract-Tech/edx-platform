@@ -484,9 +484,6 @@ def parse_query_params(strategy, response, *args, **kwargs):
     auth_entry = strategy.request.session.get(AUTH_ENTRY_KEY) or AUTH_ENTRY_LOGIN
     if auth_entry not in _AUTH_ENTRY_CHOICES:
         raise AuthEntryError(strategy.request.backend, 'auth_entry invalid')
-    
-    logger.info("testing the response")
-    logger.info(auth_entry)
 
     # Enable monitoring of the third-party-auth auth_entry value.
     set_custom_attribute('tpa_pipeline.auth_entry', auth_entry)

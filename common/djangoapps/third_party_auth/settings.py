@@ -33,7 +33,7 @@ def apply_settings(django_settings):
     django_settings.SOCIAL_AUTH_LOGIN_ERROR_URL = '/'
 
     # Where to send the user once social authentication is successful.
-    django_settings.SOCIAL_AUTH_LOGIN_REDIRECT_URL = 'https://lms.german-uds.academy/'
+    django_settings.SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/dashboard'
 
     # Disable sanitizing of redirect urls in social-auth since the platform
     # already does its own sanitization via the LOGIN_REDIRECT_WHITELIST setting.
@@ -53,8 +53,8 @@ def apply_settings(django_settings):
         'social_core.pipeline.social_auth.social_uid',
         'social_core.pipeline.social_auth.auth_allowed',
         'social_core.pipeline.social_auth.social_user',
-        'social_core.pipeline.social_auth.associate_by_email',
         'common.djangoapps.third_party_auth.pipeline.associate_by_email_if_login_api',
+        'common.djangoapps.third_party_auth.pipeline.associate_by_email_if_saml',
         'common.djangoapps.third_party_auth.pipeline.associate_by_email_if_oauth',
         'common.djangoapps.third_party_auth.pipeline.get_username',
         'common.djangoapps.third_party_auth.pipeline.set_pipeline_timeout',

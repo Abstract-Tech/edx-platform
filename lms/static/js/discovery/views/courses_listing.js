@@ -230,25 +230,10 @@
                         $el.remove();
                     }
                 });
-            
-                if (itemsHtml !== "") {
-                    var quarterLabelDescription = "The courses are modules of our M.Sc. and MBA programs. However, anyone can book these courses as stand-alone Micro Degree programs for a fee of €900.";
-                    console.log("Rendering quarter:", qObj.label);
-                    // finalHtml += `...`;
-                    finalHtml += '<div class="quarter-section">';
-                    finalHtml += '<h2 class="quarter-label">' + headingTitle + ': ' + quarterLabel + '</h2>';
-                    finalHtml += '<p class="quarter-label-description">' + quarterLabelDescription + '</p>';
-                    finalHtml += '<ul class="courses-listing courses-list">' + itemsHtml + '</ul>';
-                    finalHtml += '</div>';
-                } else {
-                    console.log("Skipping quarter with no valid courses:", qObj.label);
-                }
 
-           
-                            
-
-            });
-
+                
+                
+                
 
 
             },
