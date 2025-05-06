@@ -167,8 +167,8 @@ def enroll_email(course_id, student_email, auto_enroll=False, email_students=Fal
                 course_id=course_id,
                 mode_slug=CourseMode.PROFESSIONAL,
                 mode_display_name='Professional',
-                min_price=10,
-                currency='usd'
+                min_price=900,
+                currency='eur'
             )
             course_mode = CourseMode.PROFESSIONAL
         # Otherwise use the default mode for the course
