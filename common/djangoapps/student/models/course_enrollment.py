@@ -676,8 +676,8 @@ class CourseEnrollment(models.Model):
                     mode_slug=mode,
                     defaults={
                         'mode_display_name': 'Professional',
-                        'min_price': 10,
-                        'currency': 'usd',
+                        'min_price': 900,
+                        'currency': 'eur',
                     }
                 )
             else:
