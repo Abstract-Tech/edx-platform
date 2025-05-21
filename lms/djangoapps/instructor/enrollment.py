@@ -179,11 +179,21 @@ def enroll_email(course_id, student_email, auto_enroll=False, email_students=Fal
             course_mode = previous_state.mode
 
         enrollment_obj = CourseEnrollment.enroll_by_email(student_email, course_id, course_mode)
+        tracker.emit(
+            "edx.course.enrollment.activated",
+            {
+                "user_id": previous_state.user.id,
+                "course_id": str(course_id),
+                "mode": course_mode,
+                "is_active": True,
+            }
+        )
         if email_students:
             email_params['message_type'] = 'enrolled_enroll'
             email_params['email_address'] = student_email
             email_params['user_id'] = previous_state.user.id
             email_params['full_name'] = previous_state.full_name
+            log.info("Sending enrollment confirmation email to %s", student_email)
             send_mail_to_student(student_email, email_params, language=language)
 
     elif not is_email_retired(student_email):
