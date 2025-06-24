@@ -336,13 +336,26 @@ def _upload_ora2_data_common(
 
     try:
         header, datarows = csv_gen_func(course_id)
+        TASK_LOG.info("First data row sample (if any): %s", datarows[0] if datarows else "No data")
+
+        # Dynamically find the anonymous ID column
+        try:
+            anon_id_index = header.index('Anonymized Student ID')
+        except ValueError:
+            try:
+                anon_id_index = header.index('student_id')
+            except ValueError:
+                TASK_LOG.error("Could not find anonymous user ID column in header: %s", header)
+                raise Exception("Missing anonymized user ID column")
+
+        TASK_LOG.info("Anonymous ID column index resolved to: %d", anon_id_index)
 
         # Add username and email columns to the header
         header = ['username', 'email'] + header
         rows = [header]
 
         for row in datarows:
-            anon_id = row[6]
+            anon_id = row[anon_id_index]
             try:
                 anon_user = AnonymousUserId.objects.get(anonymous_user_id=anon_id, course_id=course_id)
                 user = anon_user.user
@@ -354,7 +367,7 @@ def _upload_ora2_data_common(
 
             rows.append([username, email] + row)
 
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         TASK_LOG.exception('Failed to get ORA data.')
         task_progress.failed = 1
         curr_step = {'step': "Error while collecting data"}
@@ -378,7 +391,6 @@ def _upload_ora2_data_common(
     TASK_LOG.info('%s, Task type: %s, Upload complete.', task_info_string, action_name)
 
     return UPDATE_STATUS_SUCCEEDED
-
 
 
 def _task_step(task_progress, task_info_string, action_name):
