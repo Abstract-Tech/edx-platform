@@ -297,7 +297,6 @@ def upload_ora2_summary(
         'summary', OraAggregateData.collect_ora2_summary
     )
 
-
 from common.djangoapps.student.models import AnonymousUserId
 
 def _upload_ora2_data_common(
@@ -343,7 +342,7 @@ def _upload_ora2_data_common(
         rows = [header]
 
         for row in datarows:
-            anon_id = row[0]  # assumes first column is anon_user_id
+            anon_id = row[6]
             try:
                 anon_user = AnonymousUserId.objects.get(anonymous_user_id=anon_id, course_id=course_id)
                 user = anon_user.user
@@ -379,6 +378,7 @@ def _upload_ora2_data_common(
     TASK_LOG.info('%s, Task type: %s, Upload complete.', task_info_string, action_name)
 
     return UPDATE_STATUS_SUCCEEDED
+
 
 
 def _task_step(task_progress, task_info_string, action_name):
