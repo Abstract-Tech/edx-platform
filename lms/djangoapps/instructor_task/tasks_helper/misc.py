@@ -298,12 +298,14 @@ def upload_ora2_summary(
     )
 
 
+from common.djangoapps.student.models import AnonymousUserId
+
 def _upload_ora2_data_common(
         _xblock_instance_args, _entry_id, course_id, _task_input, action_name,
         report_name, csv_gen_func
 ):
     """
-    Common code for uploading data or summary csv report.
+    Common code for uploading data or summary csv report, with username and email enrichment.
     """
     start_date = datetime.now(UTC)
     start_time = time()
@@ -335,17 +337,29 @@ def _upload_ora2_data_common(
 
     try:
         header, datarows = csv_gen_func(course_id)
+
+        # Add username and email columns to the header
+        header = ['username', 'email'] + header
         rows = [header]
+
         for row in datarows:
-            rows.append(row)
-    # Update progress to failed regardless of error type
+            anon_id = row[0]  # assumes first column is anon_user_id
+            try:
+                anon_user = AnonymousUserId.objects.get(anonymous_user_id=anon_id, course_id=course_id)
+                user = anon_user.user
+                username = user.username
+                email = user.email
+            except AnonymousUserId.DoesNotExist:
+                username = ""
+                email = ""
+
+            rows.append([username, email] + row)
+
     except Exception:  # pylint: disable=broad-except
         TASK_LOG.exception('Failed to get ORA data.')
         task_progress.failed = 1
         curr_step = {'step': "Error while collecting data"}
-
         task_progress.update_task_state(extra_meta=curr_step)
-
         return UPDATE_STATUS_FAILED
 
     task_progress.succeeded = 1
