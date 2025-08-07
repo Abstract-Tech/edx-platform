@@ -47,11 +47,17 @@
                         userTimezone
                     );
                 }
+                data.end = formatDate(
+                    new Date(data.end),
+                    userLanguage,
+                    userTimezone
+                );
                 data.enrollment_start = formatDate(
                     new Date(data.enrollment_start),
                     userLanguage,
                     userTimezone
                 );
+                data.instructor = this.model.get('instructor');
                 HtmlUtils.setHtml(
                     this.$el,
                     this.tpl(data)
