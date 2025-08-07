@@ -10,7 +10,7 @@ from django.views.decorators.cache import cache_page
 from rest_framework import status
 from rest_framework.views import APIView
 
-from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
+from lms.djangoapps.mfe_config_api.utils import get_mfe_config_for_site
 
 
 class MFEConfigView(APIView):
@@ -60,12 +60,4 @@ class MFEConfigView(APIView):
         if not settings.ENABLE_MFE_CONFIG_API:
             return HttpResponseNotFound()
 
-        mfe_config = configuration_helpers.get_value('MFE_CONFIG', settings.MFE_CONFIG)
-        if request.query_params.get('mfe'):
-            mfe = str(request.query_params.get('mfe'))
-            app_config = configuration_helpers.get_value(
-                'MFE_CONFIG_OVERRIDES',
-                settings.MFE_CONFIG_OVERRIDES,
-            )
-            mfe_config.update(app_config.get(mfe, {}))
-        return JsonResponse(mfe_config, status=status.HTTP_200_OK)
+        return JsonResponse(get_mfe_config_for_site(request=request), status=status.HTTP_200_OK)

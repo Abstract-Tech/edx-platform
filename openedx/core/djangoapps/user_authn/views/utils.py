@@ -17,6 +17,7 @@ from common.djangoapps.third_party_auth.models import clean_username
 from openedx.core.djangoapps.embargo.models import GlobalRestrictedCountry
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.geoinfo.api import country_code_from_ip
+from lms.djangoapps.mfe_config_api.utils import get_mfe_config_for_site
 import random
 import string
 from datetime import datetime
@@ -198,3 +199,7 @@ def remove_disabled_country_from_list(countries: Dict) -> Dict:
     for country_code in GlobalRestrictedCountry.get_countries():
         del countries[country_code]
     return countries
+
+def get_authn_mfe_base_url(request=None, site=None) -> str:
+    mfe_config = get_mfe_config_for_site(request=request, site=site, mfe="authn")
+    return mfe_config.get("BASE_URL", settings.AUTHN_MICROFRONTEND_URL)
