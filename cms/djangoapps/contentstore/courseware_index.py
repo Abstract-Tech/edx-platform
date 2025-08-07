@@ -14,13 +14,9 @@ from search.search_engine_base import SearchEngine
 
 from cms.djangoapps.contentstore.course_group_config import GroupConfiguration
 from common.djangoapps.course_modes.models import CourseMode
-<<<<<<< HEAD
-from openedx.core.lib.courses import course_image_url, course_organization_image_url
-=======
 from common.djangoapps.student.roles import CourseInstructorRole
-from openedx.core.lib.courses import course_image_url
+from openedx.core.lib.courses import course_image_url, course_organization_image_url
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
->>>>>>> a327d46b5c (feat(search): add categories and self_paced support to CourseAboutSearchIndexer)
 from xmodule.annotator_mixin import html_to_text  # lint-amnesty, pylint: disable=wrong-import-order
 from xmodule.library_tools import normalize_key_for_search  # lint-amnesty, pylint: disable=wrong-import-order
 from xmodule.modulestore import ModuleStoreEnum  # lint-amnesty, pylint: disable=wrong-import-order

@@ -26,7 +26,7 @@ from openedx.core.djangoapps.user_authn.cookies import set_logged_in_cookies
 from openedx.core.djangoapps.user_authn.toggles import should_redirect_to_authn_microfrontend
 from openedx.core.djangoapps.user_authn.views.password_reset import get_password_reset_form
 from openedx.core.djangoapps.user_authn.views.registration_form import RegistrationFormFactory
-from openedx.core.djangoapps.user_authn.views.utils import third_party_auth_context
+from openedx.core.djangoapps.user_authn.views.utils import third_party_auth_context, get_authn_mfe_base_url
 from openedx.core.djangoapps.user_authn.toggles import is_require_third_party_auth_enabled
 from openedx.features.enterprise_support.api import enterprise_customer_for_request, enterprise_enabled
 from openedx.features.enterprise_support.utils import (
@@ -38,6 +38,8 @@ from common.djangoapps.student.helpers import get_next_url_for_login_page
 from common.djangoapps.third_party_auth import pipeline
 from common.djangoapps.third_party_auth.decorators import xframe_allow_whitelisted
 from common.djangoapps.util.password_policy_validators import DEFAULT_MAX_PASSWORD_LENGTH
+
+
 
 log = logging.getLogger(__name__)
 
@@ -219,7 +221,7 @@ def login_and_registration_form(request, initial_mode="login"):
             initial_mode,
             '?' + query_params if query_params else ''
         )
-        return redirect(settings.AUTHN_MICROFRONTEND_URL + url_path)
+        return redirect(get_authn_mfe_base_url(request=request) + url_path)
 
     # Account activation message
     account_activation_messages = [
