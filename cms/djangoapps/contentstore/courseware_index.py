@@ -14,10 +14,17 @@ from search.search_engine_base import SearchEngine
 
 from cms.djangoapps.contentstore.course_group_config import GroupConfiguration
 from common.djangoapps.course_modes.models import CourseMode
+<<<<<<< HEAD
 from openedx.core.lib.courses import course_image_url, course_organization_image_url
+=======
+from common.djangoapps.student.roles import CourseInstructorRole
+from openedx.core.lib.courses import course_image_url
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
+>>>>>>> a327d46b5c (feat(search): add categories and self_paced support to CourseAboutSearchIndexer)
 from xmodule.annotator_mixin import html_to_text  # lint-amnesty, pylint: disable=wrong-import-order
 from xmodule.library_tools import normalize_key_for_search  # lint-amnesty, pylint: disable=wrong-import-order
 from xmodule.modulestore import ModuleStoreEnum  # lint-amnesty, pylint: disable=wrong-import-order
+
 
 # REINDEX_AGE is the default amount of time that we look back for changes
 # that might have happened. If we are provided with a time at which the
@@ -542,11 +549,19 @@ class AboutInfo:
 
         return [mode.slug for mode in CourseMode.modes_for_course(course.id)]
 
+    def from_course_category(self, **kwargs):
+        """ Fetches the available course categories from the CourseOverview model """
+        course = kwargs.get('course', None)
+        if not course:
+            raise ValueError("Context dictionary does not contain expected argument 'course'")
+
+        return CourseOverview.objects.get(id=course.id).get_course_categories()
+
     # Source location options - either from the course or the about info
     FROM_ABOUT_INFO = from_about_dictionary
     FROM_COURSE_PROPERTY = from_course_property
     FROM_COURSE_MODE = from_course_mode
-
+    FROM_COURSE_CATEGORY = from_course_category
 
 class CourseAboutSearchIndexer(CoursewareSearchIndexer):
     """
@@ -590,6 +605,7 @@ class CourseAboutSearchIndexer(CoursewareSearchIndexer):
         AboutInfo("language", AboutInfo.PROPERTY, AboutInfo.FROM_COURSE_PROPERTY),
         AboutInfo("invitation_only", AboutInfo.PROPERTY, AboutInfo.FROM_COURSE_PROPERTY),
         AboutInfo("catalog_visibility", AboutInfo.PROPERTY, AboutInfo.FROM_COURSE_PROPERTY),
+        AboutInfo("categories", AboutInfo.PROPERTY, AboutInfo.FROM_COURSE_CATEGORY),
     ]
 
     @classmethod
@@ -607,12 +623,24 @@ class CourseAboutSearchIndexer(CoursewareSearchIndexer):
             return
 
         course_id = str(course.id)
+        instructors = CourseInstructorRole(course.id).users_with_role()
+
+        # Format names
+        instructor_names = []
+        for instructor in instructors:
+            name = (
+                getattr(instructor, "profile", None) and instructor.profile.name
+            ) or f"{instructor.first_name} {instructor.last_name}"
+            instructor_names.append(name)
+
         course_info = {
             'id': course_id,
             'course': course_id,
             'content': {},
             'image_url': course_image_url(course),
             'org_image_url': course_organization_image_url(course),
+            'self_paced': course.self_paced,
+            'instructor': ", ".join(instructor_names) if instructor_names else None,
         }
 
         # load data for all of the 'about' blocks for this course into a dictionary
