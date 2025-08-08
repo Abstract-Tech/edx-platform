@@ -3,6 +3,7 @@ Discussion API views
 """
 import logging
 import uuid
+import six
 
 import edx_api_doc_tools as apidocs
 
@@ -1158,9 +1159,19 @@ class UploadFileView(DeveloperErrorViewMixin, APIView):
         # this is a no-op in production, but is required in development,
         # since the filesystem storage returns the path without a base_url
         file_absolute_url = request.build_absolute_uri(file_absolute_url)
+        # REF: lms/djangoapps/discussion/django_comment_client/base/views.py
+        parsed_url = six.moves.urllib.parse.urlparse(file_absolute_url)
+        file_url = six.moves.urllib.parse.urlunparse(
+            six.moves.urllib.parse.ParseResult(
+                parsed_url.scheme,
+                parsed_url.netloc,
+                parsed_url.path,
+                '', '', ''
+            )
+        )
 
         return Response(
-            {"location": file_absolute_url},
+            {"location": file_url},
             content_type="application/json",
         )
 
