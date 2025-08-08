@@ -37,6 +37,7 @@ from openedx.core.djangoapps.catalog.utils import (
     get_pseudo_session_for_entitlement,
     get_visible_sessions_for_entitlement
 )
+from lms.djangoapps.mfe_config_api.utils import get_mfe_config_for_site
 from openedx.core.djangoapps.credit.email_utils import get_credit_provider_attribute_values, make_providers_strings
 from openedx.core.djangoapps.plugins.constants import ProjectType
 from openedx.core.djangoapps.programs.models import ProgramsApiConfig
@@ -497,6 +498,10 @@ def check_for_unacknowledged_notices(context):
 
     return notice_url
 
+def get_learner_dashboard_mfe_base_url(request=None, site=None) -> str:
+    mfe_config = get_mfe_config_for_site(request=request, site=site, mfe="learner-dashboard")
+    return mfe_config.get("LEARNER_HOME_MICROFRONTEND_URL", settings.LEARNER_HOME_MICROFRONTEND_URL)
+
 
 @login_required
 @ensure_csrf_cookie
@@ -521,7 +526,7 @@ def student_dashboard(request):  # lint-amnesty, pylint: disable=too-many-statem
         return redirect(settings.ACCOUNT_MICROFRONTEND_URL)
 
     if learner_home_mfe_enabled():
-        return redirect(settings.LEARNER_HOME_MICROFRONTEND_URL)
+        return redirect(get_learner_dashboard_mfe_base_url(request=request))
 
     platform_name = configuration_helpers.get_value("platform_name", settings.PLATFORM_NAME)
 
