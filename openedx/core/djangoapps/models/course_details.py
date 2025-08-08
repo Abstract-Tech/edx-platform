@@ -158,8 +158,17 @@ class CourseDetails:
         Returns the course about video URL.
         """
         video_id = cls.fetch_youtube_video_id(course_key)
-        if video_id:
-            return f"http://www.youtube.com/watch?v={video_id}"
+        if not video_id:
+            return None
+
+        # Determine if it's a Vimeo or YouTube ID
+        if re.match(r"^\d+$", video_id):
+            # Vimeo IDs are all numeric
+            return f"https://player.vimeo.com/video/{video_id}"
+        else:
+            # YouTube IDs are alphanumeric
+            return f"https://www.youtube.com/watch?v={video_id}"
+
 
     @classmethod
     def update_about_item(cls, course, about_key, data, user_id, store=None):
@@ -322,23 +331,26 @@ class CourseDetails:
     @staticmethod
     def parse_video_tag(raw_video):
         """
-        Because the client really only wants the author to specify the
-        youtube key, that's all we send to and get from the client. The
-        problem is that the db stores the html markup as well (which, of
-        course, makes any site-wide changes to how we do videos next to
-        impossible.)
+            Because the client really only wants the author to specify the
+            youtube key, that's all we send to and get from the client. The
+            problem is that the db stores the html markup as well (which, of
+            course, makes any site-wide changes to how we do videos next to
+            impossible.)
         """
+
         if not raw_video:
             return None
 
-        keystring_matcher = re.search(r'(?<=embed/)[a-zA-Z0-9_-]+', raw_video)
-        if keystring_matcher is None:
-            keystring_matcher = re.search(r'<?=\d+:[a-zA-Z0-9_-]+', raw_video)
-
-        if keystring_matcher:
-            return keystring_matcher.group(0)
+        vimeo_match = re.search(r'player\.vimeo\.com\/video\/(\d+)', raw_video)
+        if vimeo_match:
+            return vimeo_match.group(1)
+        elif re.search(r'youtube\.com/embed/([^?&"]+)', raw_video):
+            youtube_match = re.search(r'youtube\.com/embed/([^?&"]+)', raw_video)
+            return youtube_match.group(1)
         else:
-            logging.warn("ignoring the content because it doesn't not conform to expected pattern: " + raw_video)  # lint-amnesty, pylint: disable=deprecated-method, logging-not-lazy
+            logging.warning(
+                "Ignoring the content because it does not conform to the expected pattern: %s", raw_video
+            )
             return None
 
     @staticmethod
@@ -348,13 +360,21 @@ class CourseDetails:
         """
         # TODO should this use a mako template? Of course, my hope is
         # that this is a short-term workaround for the db not storing
-        #  the right thing
+        # the right thing
         result = None
         if video_key:
-            result = (
-                HTML('<iframe title="YouTube Video" width="560" height="315" src="//www.youtube.com/embed/{}?rel=0" '
-                     'frameborder="0" allowfullscreen=""></iframe>').format(video_key)
-            )
+            if re.match(r'^[0-9]+$', video_key):
+                # It's a Vimeo video ID
+                result = (
+                    '<iframe title="Vimeo Video" width="560" height="315" src="https://player.vimeo.com/video/{}" '
+                    'frameborder="0" allowfullscreen></iframe>'
+                ).format(video_key)
+            else:
+                # Assume it's a YouTube video ID
+                result = (
+                    '<iframe title="YouTube Video" width="560" height="315" src="https://www.youtube.com/embed/{}" '
+                    'frameborder="0" allowfullscreen></iframe>'
+                ).format(video_key)
         return result
 
     @classmethod
