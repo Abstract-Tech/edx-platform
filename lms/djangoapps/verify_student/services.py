@@ -15,6 +15,7 @@ from django.utils.translation import gettext as _
 from common.djangoapps.course_modes.models import CourseMode
 from common.djangoapps.student.models import User
 from lms.djangoapps.verify_student.utils import is_verification_expiring_soon
+from lms.djangoapps.mfe_config_api.utils import get_mfe_config_for_site
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 
 from .models import ManualVerification, SoftwareSecurePhotoVerification, SSOVerification
@@ -232,9 +233,11 @@ class IDVerificationService:
         Returns a string:
             Returns URL for IDV on Account Microfrontend
         """
-        location = f'{settings.ACCOUNT_MICROFRONTEND_URL}/id-verification'
+        mfe_config = get_mfe_config_for_site(mfe="account")
+        account_base_url = mfe_config.get("ACCOUNT_SETTINGS_URL", "").rstrip("/")
+        location = f"{account_base_url}/id-verification"
         if course_id:
-            location += f'?course_id={quote(str(course_id))}'
+            location += f"?course_id={quote(str(course_id))}"
         return location
 
     @classmethod
