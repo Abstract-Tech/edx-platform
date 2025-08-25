@@ -148,6 +148,53 @@ class Target(models.Model):
                     & enrollment_query
                 )
             )
+        # ---------- NEW: progress buckets ----------
+        elif isinstance(self.target_type, str) and self.target_type.startswith('score['):
+            # Map the four buckets to (min, max) inclusive percentages.
+            slot_map = {
+                'score[0]': (0.0, 0.0),
+                'score[1-39]': (1.0, 39.0),
+                'score[40-69]': (40.0, 69.0),
+                'score[70-100]': (70.0, 100.0),
+            }
+            if self.target_type not in slot_map:
+                raise ValueError(f"Unrecognized score target {self.target_type}")
+
+            min_pct, max_pct = slot_map[self.target_type]
+
+            # Start from active enrolled learners (exclude staff/instructors like SEND_TO_LEARNERS)
+            eligible_qs = enrollment_qset.exclude(id__in=staff_instructor_qset)
+
+            # Compute course grades and filter by range.
+            from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
+            from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
+
+            try:
+                course_overview = CourseOverview.get_from_id(course_id)
+            except Exception:  # defensive: if something is wrong with overview, treat as 0%
+                course_overview = None
+
+            factory = CourseGradeFactory()
+            user_ids = []
+
+            # Iterate to avoid loading huge sets in memory at once
+            for user in eligible_qs.iterator():
+                user_grade_pct = 0.0
+                if course_overview is not None:
+                    try:
+                        cg = factory.read(user, course=course_overview, create_if_needed=True)
+                        if cg and cg.percent is not None:
+                            user_grade_pct = round(cg.percent * 100.0, 2)
+                    except Exception:
+                        # If grade read fails for any reason, treat as 0%
+                        user_grade_pct = 0.0
+
+                if min_pct <= user_grade_pct <= max_pct:
+                    user_ids.append(user.id)
+
+            return use_read_replica_if_available(User.objects.filter(id__in=user_ids))
+        # -------------------------------------------
+
         else:
             raise ValueError(f"Unrecognized target type {self.target_type}")
 
