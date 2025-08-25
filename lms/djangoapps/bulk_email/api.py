@@ -173,7 +173,7 @@ def determine_targets_for_course_email(course_id, subject, targets):
             # The currencies do not affect user lookup though, so we can just use the first result.
             mode = CourseMode.objects.filter(course_id=course_id, mode_slug=target_split[1])[0]
             new_target, _ = CourseModeTarget.objects.get_or_create(target_type=target_split[0], track=mode)
-         elif target.startswith("score"):
+        elif target.startswith("score"):
             # Create a dummy Target instance for score-based targeting
             new_target, _ = Target.objects.get_or_create(target_type=target)
         else:
