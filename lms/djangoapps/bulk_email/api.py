@@ -155,7 +155,6 @@ def determine_targets_for_course_email(course_id, subject, targets):
     """
     new_targets = []
     for target in targets:
-        print("###############8888888888888888888888888")
         # split target, to handle cohort:cohort_name and track:mode_slug
         target_split = target.split(':', 1)
         # Ensure our desired target exists
