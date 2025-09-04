@@ -51,6 +51,7 @@ from lms.djangoapps.courseware.masquerade import get_masquerade_role
 from lms.djangoapps.discussion.django_comment_client.utils import has_forum_access
 from lms.djangoapps.grades.api import is_writable_gradebook_enabled
 from lms.djangoapps.instructor.constants import INSTRUCTOR_DASHBOARD_PLUGIN_VIEW_NAME
+from lms.djangoapps.mfe_config_api.utils import get_mfe_config_for_site
 from openedx.core.djangoapps.course_groups.cohorts import DEFAULT_COHORT_NAME, get_course_cohorts, is_course_cohorted
 from openedx.core.djangoapps.discussions.config.waffle_utils import legacy_discussion_experience_enabled
 from openedx.core.djangoapps.discussions.utils import available_division_schemes
@@ -729,9 +730,17 @@ def _section_send_email(course, access):
         ),
     }
     if settings.FEATURES.get("ENABLE_NEW_BULK_EMAIL_EXPERIENCE", False) is not False:
+        # Get communications MFE config from site configuration
+        mfe_config = get_mfe_config_for_site(request, mfe="communications")
+        base_url = (
+            mfe_config.get("COMMUNICATIONS_MFE_BASE_URL")
+            or mfe_config.get("COMMUNICATIONS_MICROFRONTEND_URL")
+            or settings.COMMUNICATIONS_MICROFRONTEND_URL
+        )
         section_data[
             "communications_mfe_url"
-        ] = f"{settings.COMMUNICATIONS_MICROFRONTEND_URL}/courses/{str(course_key)}/bulk_email"
+        ] = f"{base_url}/courses/{str(course_key)}/bulk_email"
+
     return section_data
 
 
