@@ -731,7 +731,7 @@ def _section_send_email(course, access):
     }
     if settings.FEATURES.get("ENABLE_NEW_BULK_EMAIL_EXPERIENCE", False) is not False:
         # Get communications MFE config from site configuration
-        mfe_config = get_mfe_config_for_site(request, mfe="communications")
+        mfe_config = get_mfe_config_for_site(mfe="communications")
         base_url = (
             mfe_config.get("COMMUNICATIONS_MFE_BASE_URL")
             or mfe_config.get("COMMUNICATIONS_MICROFRONTEND_URL")
@@ -740,7 +740,6 @@ def _section_send_email(course, access):
         section_data[
             "communications_mfe_url"
         ] = f"{base_url}/courses/{str(course_key)}/bulk_email"
-
     return section_data
 
 
