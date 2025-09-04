@@ -683,7 +683,7 @@ def null_applicable_aside_types(block):  # pylint: disable=unused-argument
     return []
 
 
-def _section_send_email(course, access):
+def _section_send_email(request, course, access):
     """ Provide data for the corresponding bulk email section """
     course_key = course.id
 
@@ -731,7 +731,7 @@ def _section_send_email(course, access):
     }
     if settings.FEATURES.get("ENABLE_NEW_BULK_EMAIL_EXPERIENCE", False) is not False:
         # Get communications MFE config from site configuration
-        mfe_config = get_mfe_config_for_site(mfe="communications")
+        mfe_config = get_mfe_config_for_site(request=request, mfe="communications")
         base_url = (
             mfe_config.get("COMMUNICATIONS_MFE_BASE_URL")
             or mfe_config.get("COMMUNICATIONS_MICROFRONTEND_URL")
