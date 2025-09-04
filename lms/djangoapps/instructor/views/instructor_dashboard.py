@@ -185,7 +185,7 @@ def instructor_dashboard_2(request, course_id):  # lint-amnesty, pylint: disable
         is_bulk_email_disabled_for_course(course_key) and
         (access['staff'] or access['instructor'])
     ):
-        sections.append(_section_send_email(course, access))
+        sections.append(_section_send_email(request, course, access))
 
     # Gate access to Special Exam tab depending if either timed exams or proctored exams
     # are enabled in the course
