@@ -215,84 +215,146 @@
 
             renderOriginalItems: function() {
                 var latest = this.model.latest();
-                var currentDate = new Date();
+                var now = new Date();
+                var sixWeeksMs = 6 * 7 * 24 * 60 * 60 * 1000; // 6 weeks in ms
                 var currentCourses = [];
                 var upcomingCourses = [];
                 var selfPacedCourses = [];
                 var pastCourses = [];
 
+                function parseDate(value) {
+                    // Treat null/undefined/empty as undefined; otherwise return Date
+                    if (!value) { return undefined; }
+                    var d = new Date(value);
+                    return isNaN(d.getTime()) ? undefined : d;
+                }
+
+                function startDate(course) {
+                    return parseDate(course.attributes.start);
+                }
+
+                function endDate(course) {
+                    return parseDate(course.attributes.end);
+                }
+
                 for (var i = 0; i < latest.length; i++) {
                     var course = latest[i];
-                    if (course.attributes.self_paced) {
+                    var isSelfPaced = !!course.attributes.self_paced;
+                    var start = startDate(course);
+                    var end = endDate(course);
+
+                    if (isSelfPaced) {
+                        // Always show in Self-paced section
                         selfPacedCourses.push(course);
-                    } else {
-                        var course_start = new Date(course.attributes.start);
-                        var course_end = course.attributes.end ? new Date(course.attributes.end) : undefined;
-                        if ((course_start <= currentDate) && ((course_end >= currentDate) || (course_end === undefined))) {
+                        // Also include in Current if started within last 6 weeks
+                        if (start && (now - start) <= sixWeeksMs && start <= now) {
                             currentCourses.push(course);
-                        } else if (course_start > currentDate) {
+                        }
+                    } else {
+                        // Instructor-paced classification
+                        if (start && start > now) {
                             upcomingCourses.push(course);
+                        } else if ((start && start <= now) && (!end || end >= now)) {
+                            // Ongoing (no end or end in future)
+                            currentCourses.push(course);
                         } else {
+                            // Ended (only instructor-paced go to Past)
                             pastCourses.push(course);
                         }
                     }
                 }
 
-                var currentCoursesItems = currentCourses.map(function(result) {
-                    var item = new CourseCardView({model: result});
-                    return item.render().el;
-                });
-
-                var upcomingCoursesItems = upcomingCourses.map(function(result) {
-                    var item = new CourseCardView({model: result});
-                    return item.render().el;
-                });
-
-                var selfPacedCoursesItems = selfPacedCourses.map(function(result) {
-                    var item = new CourseCardView({model: result});
-                    return item.render().el;
-                });
-
-                var pastCoursesItems = pastCourses.map(function(result) {
-                    var item = new CourseCardView({model: result});
-                    return item.render().el;
-                });
-
-                if (currentCourses.length) {
-                    HtmlUtils.append(this.$currentCoursesList, HtmlUtils.HTML(currentCoursesItems));
-                    if ($(".current-courses-header").length === 0) {
-                        this.$currentCoursesList.before("<h2 class='current-courses-header'>Current courses</h2>");
-                    }
-                } else {
-                    $(".current-courses-header").remove();
+                // Sort: start date ascending for Current and Upcoming
+                function byStartAsc(a, b) {
+                    var as = startDate(a), bs = startDate(b);
+                    if (!as && !bs) return 0;
+                    if (!as) return 1; // items without start go last
+                    if (!bs) return -1;
+                    return as - bs;
                 }
 
-                if (upcomingCourses.length) {
-                    HtmlUtils.append(this.$upcomingCoursesList, HtmlUtils.HTML(upcomingCoursesItems));
-                    if ($(".upcoming-courses-header").length === 0) {
-                        this.$upcomingCoursesList.before("<h2 class='upcoming-courses-header'>Upcoming courses</h2>");
-                    }
-                } else {
-                    $(".upcoming-courses-header").remove();
+                function byStartDesc(a, b) {
+                    var as = startDate(a), bs = startDate(b);
+                    if (!as && !bs) return 0;
+                    if (!as) return 1;
+                    if (!bs) return -1;
+                    return bs - as;
                 }
 
-                if (selfPacedCourses.length) {
-                    HtmlUtils.append(this.$selfPacedCoursesList, HtmlUtils.HTML(selfPacedCoursesItems));
-                    if ($(".self-paced-courses-header").length === 0) {
-                        this.$selfPacedCoursesList.before("<h2 class='self-paced-courses-header'>Self paced courses</h2>");
+                function byEndDesc(a, b) {
+                    var ae = endDate(a), be = endDate(b);
+                    if (!ae && !be) {
+                        return byStartDesc(a, b);
                     }
-                } else {
-                    $(".self-paced-courses-header").remove();
+                    if (!ae) return 1;
+                    if (!be) return -1;
+                    var diff = be - ae;
+                    return diff === 0 ? byStartDesc(a, b) : diff;
                 }
 
-                if (pastCourses.length) {
-                    HtmlUtils.append(this.$pastCoursesList, HtmlUtils.HTML(pastCoursesItems));
-                    if ($(".past-courses-header").length === 0) {
-                        this.$pastCoursesList.before("<h2 class='past-courses-header'>Past courses</h2>");
+                currentCourses.sort(byStartAsc);
+                upcomingCourses.sort(byStartAsc);
+                selfPacedCourses.sort(byStartDesc);
+                pastCourses.sort(byEndDesc);
+
+                var viewRoot = this.$el;
+
+                function buildCourseMarkup(courses) {
+                    var fragments = [];
+                    for (var idx = 0; idx < courses.length; idx++) {
+                        var view = new CourseCardView({model: courses[idx]});
+                        var renderedElement = view.render().el;
+                        if (renderedElement && renderedElement.outerHTML) {
+                            fragments.push(renderedElement.outerHTML);
+                        }
                     }
-                } else {
-                    $(".past-courses-header").remove();
+                    return fragments.join('');
                 }
+
+                function renderSection(config) {
+                    var $list = config.list;
+                    var headerClass = config.headerClass;
+                    var headerText = config.headerText;
+                    var markup = buildCourseMarkup(config.courses);
+
+                    viewRoot.find('.' + headerClass).remove();
+                    $list.empty();
+
+                    if (!markup) {
+                        return;
+                    }
+
+                    HtmlUtils.append($list, HtmlUtils.HTML(markup));
+                    $list.before("<h2 class='" + headerClass + "'>" + headerText + "</h2>");
+                }
+
+                renderSection({
+                    courses: currentCourses,
+                    list: this.$currentCoursesList,
+                    headerClass: 'current-courses-header',
+                    headerText: 'Current courses'
+                });
+
+                renderSection({
+                    courses: upcomingCourses,
+                    list: this.$upcomingCoursesList,
+                    headerClass: 'upcoming-courses-header',
+                    headerText: 'Upcoming courses'
+                });
+
+                renderSection({
+                    courses: selfPacedCourses,
+                    list: this.$selfPacedCoursesList,
+                    headerClass: 'self-paced-courses-header',
+                    headerText: 'Self paced courses'
+                });
+
+                renderSection({
+                    courses: pastCourses,
+                    list: this.$pastCoursesList,
+                    headerClass: 'past-courses-header',
+                    headerText: 'Past courses'
+                });
             },
 
             attachScrollHandler: function() {
