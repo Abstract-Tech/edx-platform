@@ -157,6 +157,8 @@ def determine_targets_for_course_email(course_id, subject, targets):
     for target in targets:
         # split target, to handle cohort:cohort_name and track:mode_slug
         target_split = target.split(':', 1)
+        log.info("Target split: %s", target_split)
+        log.info("Target key: %s", target_split[0])
         # Ensure our desired target exists
         if not BulkEmailTargetChoices.is_valid_target(target_split[0]):  # pylint: disable=no-else-raise
             raise ValueError(
