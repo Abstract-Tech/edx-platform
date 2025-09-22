@@ -244,17 +244,29 @@
                     var end = endDate(course);
 
                     if (isSelfPaced) {
-                        // Always show in Self-paced section
-                        selfPacedCourses.push(course);
-                        // Also include in Current if started within last 6 weeks
-                        if (start && (now - start) <= sixWeeksMs && start <= now) {
-                            currentCourses.push(course);
+                        if (start) {
+                            if (start > now) {
+                                // Future start → Upcoming
+                                upcomingCourses.push(course);
+                            } else {
+                                var ageMs = now - start;
+                                if (ageMs < sixWeeksMs) {
+                                    // Started, still within first 6 weeks → Current
+                                    currentCourses.push(course);
+                                } else {
+                                    // Started more than 6 weeks ago → Self-paced
+                                    selfPacedCourses.push(course);
+                                }
+                            }
+                        } else {
+                            // No reliable start date → treat as Upcoming to avoid duplication
+                            upcomingCourses.push(course);
                         }
                     } else {
                         // Instructor-paced classification
                         if (start && start > now) {
                             upcomingCourses.push(course);
-                        } else if ((start && start <= now) && (!end || end >= now)) {
+                        } else if (start && start <= now && (!end || end >= now)) {
                             // Ongoing (no end or end in future)
                             currentCourses.push(course);
                         } else {
