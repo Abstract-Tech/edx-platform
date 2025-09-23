@@ -55,9 +55,37 @@ SEND_TO_STAFF = 'staff'
 SEND_TO_LEARNERS = 'learners'
 SEND_TO_COHORT = 'cohort'
 SEND_TO_TRACK = 'track'
+
+# Custom score-bucket targets
+SEND_TO_SCORE_0 = 'score[0]'
+SEND_TO_SCORE_1_39 = 'score[1-39]'
+SEND_TO_SCORE_40_69 = 'score[40-69]'
+SEND_TO_SCORE_70_100 = 'score[70-100]'
+
 EMAIL_TARGET_CHOICES = list(zip(
-    [SEND_TO_MYSELF, SEND_TO_STAFF, SEND_TO_LEARNERS, SEND_TO_COHORT, SEND_TO_TRACK],
-    ['Myself', 'Staff and instructors', 'All students', 'Specific cohort', 'Specific course mode']
+    [
+        SEND_TO_MYSELF,
+        SEND_TO_STAFF,
+        SEND_TO_LEARNERS,
+        SEND_TO_COHORT,
+        SEND_TO_TRACK,
+        # score buckets (display strings kept concise)
+        SEND_TO_SCORE_0,
+        SEND_TO_SCORE_1_39,
+        SEND_TO_SCORE_40_69,
+        SEND_TO_SCORE_70_100,
+    ],
+    [
+        'Myself',
+        'Staff and instructors',
+        'All students',
+        'Specific cohort',
+        'Specific course mode',
+        'Score: 0',
+        'Score: 1–39',
+        'Score: 40–69',
+        'Score: 70–100',
+    ]
 ))
 EMAIL_TARGETS = {target[0] for target in EMAIL_TARGET_CHOICES}
 

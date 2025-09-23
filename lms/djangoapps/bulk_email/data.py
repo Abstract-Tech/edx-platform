@@ -37,5 +37,15 @@ class BulkEmailTargetChoices:
     def is_valid_target(cls, target):
         """
         Given the target of a message, return a boolean indicating whether the target choice is valid.
+
+        Allows both standard targets and the four score-bucket strings.
         """
-        return target in cls.TARGET_CHOICES
+        if target in cls.TARGET_CHOICES:
+            return True
+        # Accept exact score bucket patterns
+        return target in {
+            cls.SEND_TO_SCORE_0,
+            cls.SEND_TO_SCORE_1_39,
+            cls.SEND_TO_SCORE_40_69,
+            cls.SEND_TO_SCORE_70_100,
+        }
