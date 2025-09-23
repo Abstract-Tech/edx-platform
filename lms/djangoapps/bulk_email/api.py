@@ -159,8 +159,12 @@ def determine_targets_for_course_email(course_id, subject, targets):
         target_split = target.split(':', 1)
         log.info("Target split: %s", target_split)
         log.info("Target key: %s", target_split[0])
-        # Ensure our desired target exists
-        if not BulkEmailTargetChoices.is_valid_target(target_split[0]):  # pylint: disable=no-else-raise
+        # Handle score-based targets first (e.g., 'score[0]', 'score[40-69]')
+        if isinstance(target, str) and target.startswith("score["):
+            # Create a Target with the full score bucket string; filtering happens later in Target.get_users
+            new_target, _ = Target.objects.get_or_create(target_type=target)
+        # Ensure our desired standard target exists
+        elif not BulkEmailTargetChoices.is_valid_target(target_split[0]):  # pylint: disable=no-else-raise
             raise ValueError(
                 f"Course email being sent to an unrecognized target: '{target}' for '{course_id}', subject '{subject}'"
             )
@@ -175,9 +179,6 @@ def determine_targets_for_course_email(course_id, subject, targets):
             # The currencies do not affect user lookup though, so we can just use the first result.
             mode = CourseMode.objects.filter(course_id=course_id, mode_slug=target_split[1])[0]
             new_target, _ = CourseModeTarget.objects.get_or_create(target_type=target_split[0], track=mode)
-        elif target.startswith("score"):
-            # Create a dummy Target instance for score-based targeting
-            new_target, _ = Target.objects.get_or_create(target_type=target)
         else:
             new_target, _ = Target.objects.get_or_create(target_type=target_split[0])
         new_targets.append(new_target)
