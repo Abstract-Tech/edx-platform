@@ -194,13 +194,7 @@ class Target(models.Model):
             eligible_qs = enrollment_qset.exclude(id__in=staff_instructor_qset)
 
             # Compute course grades and filter by range.
-            from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
             from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
-
-            try:
-                course_overview = CourseOverview.get_from_id(course_id)
-            except Exception:  # defensive: if something is wrong with overview, treat as 0%
-                course_overview = None
 
             factory = CourseGradeFactory()
             user_ids = []
@@ -209,7 +203,7 @@ class Target(models.Model):
             # grades are calculated even if no persistent grade exists yet (avoids everything
             # falling into the 0% bucket).
             try:
-                for result in factory.iter(eligible_qs.iterator(), course=course_overview, force_update=True):
+                for result in factory.iter(eligible_qs.iterator(), course_key=course_id, force_update=True):
                     user = result.student
                     cg = result.course_grade
                     # Default to 0% on errors or missing grades
@@ -225,7 +219,7 @@ class Target(models.Model):
                 for user in eligible_qs.iterator():
                     user_grade_pct = 0.0
                     try:
-                        cg = factory.update(user, course=course_overview)
+                        cg = factory.update(user, course_key=course_id)
                         if cg and cg.percent is not None:
                             user_grade_pct = round(cg.percent * 100.0, 2)
                     except Exception:
