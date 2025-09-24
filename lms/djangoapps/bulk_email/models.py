@@ -205,20 +205,34 @@ class Target(models.Model):
             factory = CourseGradeFactory()
             user_ids = []
 
-            # Iterate to avoid loading huge sets in memory at once
-            for user in eligible_qs.iterator():
-                user_grade_pct = 0.0
-                if course_overview is not None:
+            # Compute up-to-date grades for eligible users. Using iter with force_update ensures
+            # grades are calculated even if no persistent grade exists yet (avoids everything
+            # falling into the 0% bucket).
+            try:
+                for result in factory.iter(eligible_qs.iterator(), course=course_overview, force_update=True):
+                    user = result.student
+                    cg = result.course_grade
+                    # Default to 0% on errors or missing grades
+                    user_grade_pct = 0.0
+                    if cg and cg.percent is not None:
+                        # cg.percent is 0..1; convert to percent scale
+                        user_grade_pct = round(cg.percent * 100.0, 2)
+
+                    if min_pct <= user_grade_pct <= max_pct:
+                        user_ids.append(user.id)
+            except Exception:
+                # If the batch path fails for any reason, fall back to the (slower) per-user update path.
+                for user in eligible_qs.iterator():
+                    user_grade_pct = 0.0
                     try:
-                        cg = factory.read(user, course=course_overview, create_if_needed=True)
+                        cg = factory.update(user, course=course_overview)
                         if cg and cg.percent is not None:
                             user_grade_pct = round(cg.percent * 100.0, 2)
                     except Exception:
-                        # If grade read fails for any reason, treat as 0%
                         user_grade_pct = 0.0
 
-                if min_pct <= user_grade_pct <= max_pct:
-                    user_ids.append(user.id)
+                    if min_pct <= user_grade_pct <= max_pct:
+                        user_ids.append(user.id)
 
             return use_read_replica_if_available(User.objects.filter(id__in=user_ids))
         # -------------------------------------------
