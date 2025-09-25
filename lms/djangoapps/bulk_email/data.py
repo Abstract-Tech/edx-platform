@@ -20,7 +20,7 @@ class BulkEmailTargetChoices:
     SEND_TO_LEARNERS = "learners"
     SEND_TO_COHORT = "cohort"
     SEND_TO_TRACK = "track"
-    # Optional: expose the four score buckets (these are *exact* values).
+    # Optional: expose the four score buckets (treated as course progress ranges on backend).
     SEND_TO_SCORE_0 = "score[0]"
     SEND_TO_SCORE_1_39 = "score[1-39]"
     SEND_TO_SCORE_40_69 = "score[40-69]"
@@ -30,7 +30,8 @@ class BulkEmailTargetChoices:
         SEND_TO_SCORE_0,
         SEND_TO_SCORE_1_39,
         SEND_TO_SCORE_40_69,
-        SEND_TO_SCORE_70_100,)
+        SEND_TO_SCORE_70_100,
+    )
 
 
     @classmethod

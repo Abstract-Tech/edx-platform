@@ -23,6 +23,7 @@ from openedx.core.djangoapps.course_groups.cohorts import get_cohort_by_name
 from openedx.core.djangoapps.course_groups.models import CourseUserGroup
 from openedx.core.djangoapps.enrollments.api import validate_course_mode
 from openedx.core.djangoapps.enrollments.errors import CourseModeNotFoundError
+from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
 from openedx.core.lib.html_to_text import html_to_text
 from openedx.core.lib.mail_utils import wrap_message
 
@@ -149,7 +150,6 @@ class Target(models.Model):
             courseenrollment__is_active=True
         )
         enrollment_qset = User.objects.filter(enrollment_query)
-
         # filter out learners from the message who are no longer active in the course-run based on last login
         last_login_eligibility_period = settings.BULK_COURSE_EMAIL_LAST_LOGIN_ELIGIBILITY_PERIOD
         if last_login_eligibility_period and isinstance(last_login_eligibility_period, int):
@@ -176,9 +176,9 @@ class Target(models.Model):
                     & enrollment_query
                 )
             )
-        # ---------- NEW: progress buckets ----------
+        # ---------- NEW: score buckets now filter by course grade percentage ----------
         elif isinstance(self.target_type, str) and self.target_type.startswith('score['):
-            # Map the four buckets to (min, max) inclusive percentages.
+            # Map the four buckets to (min, max) inclusive percentages. Interpreted as course grade percent.
             slot_map = {
                 'score[0]': (0.0, 0.0),
                 'score[1-39]': (1.0, 39.0),
@@ -190,44 +190,43 @@ class Target(models.Model):
 
             min_pct, max_pct = slot_map[self.target_type]
 
-            # Start from active enrolled learners (exclude staff/instructors like SEND_TO_LEARNERS)
+            # Active enrolled learners (exclude staff/instructors)
             eligible_qs = enrollment_qset.exclude(id__in=staff_instructor_qset)
+            try:
+                eligible_count = eligible_qs.count()
+            except Exception:
+                eligible_count = -1
 
-            # Compute course grades and filter by range.
-            from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
-
-            factory = CourseGradeFactory()
+            grade_factory = CourseGradeFactory()
             user_ids = []
 
-            # Compute up-to-date grades for eligible users. Using iter with force_update ensures
-            # grades are calculated even if no persistent grade exists yet (avoids everything
-            # falling into the 0% bucket).
-            try:
-                for result in factory.iter(eligible_qs.iterator(), course_key=course_id, force_update=True):
-                    user = result.student
-                    cg = result.course_grade
-                    # Default to 0% on errors or missing grades
-                    user_grade_pct = 0.0
-                    if cg and cg.percent is not None:
-                        # cg.percent is 0..1; convert to percent scale
-                        user_grade_pct = round(cg.percent * 100.0, 2)
+            for result in grade_factory.iter(eligible_qs.iterator(), course_key=course_id):
+                user, course_grade, error = result
+                if error:
+                    log.warning(
+                        "BulkEmail grade bucket skipping user %s in course %s due to grade error: %s",
+                        user.id,
+                        course_id,
+                        error,
+                    )
+                    continue
 
-                    if min_pct <= user_grade_pct <= max_pct:
-                        user_ids.append(user.id)
-            except Exception:
-                # If the batch path fails for any reason, fall back to the (slower) per-user update path.
-                for user in eligible_qs.iterator():
-                    user_grade_pct = 0.0
-                    try:
-                        cg = factory.update(user, course_key=course_id)
-                        if cg and cg.percent is not None:
-                            user_grade_pct = round(cg.percent * 100.0, 2)
-                    except Exception:
-                        user_grade_pct = 0.0
+                percent = course_grade.percent if course_grade and course_grade.percent is not None else 0.0
+                pct_value = round(percent * 100.0, 2)
+                if min_pct <= pct_value <= max_pct:
+                    user_ids.append(user.id)
 
-                    if min_pct <= user_grade_pct <= max_pct:
-                        user_ids.append(user.id)
-
+            selected_count = len(user_ids)
+            log.info(
+                "BulkEmail score(grade) bucket %s: eligible=%s, selected=%s, range=(%.2f, %.2f)",
+                self.target_type,
+                eligible_count,
+                selected_count,
+                min_pct,
+                max_pct,
+            )
+            if not user_ids:
+                return eligible_qs.none()
             return use_read_replica_if_available(User.objects.filter(id__in=user_ids))
         # -------------------------------------------
 

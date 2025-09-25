@@ -159,7 +159,7 @@ def determine_targets_for_course_email(course_id, subject, targets):
         target_split = target.split(':', 1)
         log.info("Target split: %s", target_split)
         log.info("Target key: %s", target_split[0])
-        # Handle score-based targets first (e.g., 'score[0]', 'score[40-69]')
+        # Handle score-based targets first (e.g., 'score[40-69]')
         if isinstance(target, str) and target.startswith("score["):
             # Create a Target with the full score bucket string; filtering happens later in Target.get_users
             new_target, _ = Target.objects.get_or_create(target_type=target)
