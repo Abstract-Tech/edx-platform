@@ -1012,12 +1012,17 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
         if is_auto_generated_username_enabled() and details.get('username') is None:
             username = get_auto_generated_username(details)
         else:
-            if email_as_username and details.get('email'):
+            # ✅ Custom code start — prefer email prefix if available
+            email = details.get("email")
+            if email:
+                username = email.split("@")[0].lower()
+            elif email_as_username and details.get('email'):
                 username = details['email']
             elif details.get('username'):
                 username = details['username']
             else:
                 username = uuid4().hex
+
 
         input_username = username
         final_username = slug_func(clean_func(username[:max_length]))
