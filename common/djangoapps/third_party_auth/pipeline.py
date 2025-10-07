@@ -1004,19 +1004,45 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
         else:
             slug_func = lambda val: val
 
-        if is_auto_generated_username_enabled():
-            username = get_auto_generated_username(details)
+        email = (details.get('email') or '').strip()
+        provider_username = (details.get('username') or '').strip()
+        backend_name = getattr(backend, 'name', backend.__class__.__name__)
+
+        if email:
+            username = email.split('@')[0].lower()
+            logger.info(
+                '[THIRD_PARTY_AUTH] Username chosen from email prefix. Backend=%s Email=%s Username=%s',
+                backend_name,
+                email,
+                username,
+            )
+        elif provider_username:
+            username = provider_username
+            logger.info(
+                '[THIRD_PARTY_AUTH] Username supplied by provider. Backend=%s ProviderUsername=%s',
+                backend_name,
+                provider_username,
+            )
+        elif is_auto_generated_username_enabled():
+            # If we cannot derive a meaningful username, stop the pipeline so the learner can create an account first.
+            raise AuthException(
+                backend,
+                'Single sign-on is not yet available for your account. Please create an account first.'
+            )
+        elif email_as_username and email:
+            username = email
+            logger.info(
+                '[THIRD_PARTY_AUTH] Username falls back to full email. Backend=%s Email=%s',
+                backend_name,
+                email,
+            )
         else:
-            # ✅ Custom code start — prefer email prefix if available
-            email = details.get("email")
-            if email:
-                username = email.split("@")[0].lower()
-            elif email_as_username and details.get('email'):
-                username = details['email']
-            elif details.get('username'):
-                username = details['username']
-            else:
-                username = uuid4().hex
+            username = uuid4().hex
+            logger.info(
+                '[THIRD_PARTY_AUTH] Username auto-generated as hex fallback. Backend=%s Username=%s',
+                backend_name,
+                username,
+            )
 
 
         input_username = username
