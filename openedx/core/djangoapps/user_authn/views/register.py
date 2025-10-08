@@ -6,6 +6,7 @@ Registration related views.
 import datetime
 import json
 import logging
+import re
 
 from django.conf import settings
 from django.contrib.auth import login as django_login
@@ -671,6 +672,10 @@ class RegistrationView(APIView):
             )
 
         desired_username = email.split('@')[0].lower()
+        desired_username = re.sub(r'[^a-z0-9_-]', '_', desired_username)
+        if not desired_username:
+            desired_username = 'user'
+        desired_username = desired_username[:5]
         provided_username = (data.get('username') or '').strip()
         if provided_username != desired_username:
             log.info(
