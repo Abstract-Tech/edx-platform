@@ -589,8 +589,25 @@ class RegistrationView(APIView):
         data = request.POST.copy()
         self._handle_terms_of_service(data)
 
+        sso_username_override = self._override_username_for_sso_if_needed(request, data)
+        if isinstance(sso_username_override, JsonResponse):
+            return sso_username_override
+
+        log.info(
+            '[THIRD_PARTY_AUTH] Registration payload after SSO override check: '
+            'email=%s username=%s pipeline_active=%s',
+            data.get('email'),
+            data.get('username'),
+            pipeline.running(request),
+        )
+
         if is_auto_generated_username_enabled() and 'username' not in data:
             data['username'] = get_auto_generated_username(data)
+            log.info(
+                '[THIRD_PARTY_AUTH] Auto-generated username applied post-override. email=%s username=%s',
+                data.get('email'),
+                data.get('username'),
+            )
 
         try:
             data = StudentRegistrationRequested.run_filter(form_data=data)
@@ -612,6 +629,13 @@ class RegistrationView(APIView):
         if response:
             return response
 
+        log.info(
+            '[THIRD_PARTY_AUTH] Account creation succeeded. user_id=%s username=%s email=%s',
+            user.id if user else None,
+            user.username if user else None,
+            user.email if user else None,
+        )
+
         redirect_to, root_url = get_next_url_for_login_page(request, include_host=True)
         redirect_url = get_redirect_url_with_host(root_url, redirect_to)
         authenticated_user = {'username': user.username, 'full_name': user.profile.name, 'user_id': user.id}
@@ -629,6 +653,42 @@ class RegistrationView(APIView):
             )  # setting the cookie to show account activation dialogue in platform and learning MFE
         mark_user_change_as_expected(user.id)
         return response
+
+    def _override_username_for_sso_if_needed(self, request, data):
+        """Ensure SSO registrations derive username from email prefix."""
+        if not third_party_auth.is_enabled() or not pipeline.running(request):
+            return None
+
+        email = (data.get('email') or '').strip()
+        if not email:
+            error_message = _('Single sign-on is not yet available for your account. Please create an account first.')
+            log.warning('[THIRD_PARTY_AUTH] Missing email for SSO registration; aborting username override.')
+            return self._create_response(
+                request,
+                {'error_message': [{'user_message': error_message}]},
+                status_code=400,
+                error_code='tpa-missing-email'
+            )
+
+        desired_username = email.split('@')[0].lower()
+        provided_username = (data.get('username') or '').strip()
+        if provided_username != desired_username:
+            log.info(
+                '[THIRD_PARTY_AUTH] Overriding provided username with email prefix. '
+                'Provided=%s Desired=%s Email=%s',
+                provided_username,
+                desired_username,
+                email,
+            )
+            data['username'] = desired_username
+        else:
+            log.info(
+                '[THIRD_PARTY_AUTH] Username already matches email prefix. Username=%s Email=%s',
+                provided_username,
+                email,
+            )
+
+        return None
 
     def _handle_country_code_validation(self, request, data):
         # pylint: disable=no-member

@@ -977,6 +977,14 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
     if 'username' not in backend.setting('USER_FIELDS', USER_FIELDS):
         return
     storage = strategy.storage
+    backend_name = getattr(backend, 'name', backend.__class__.__name__)
+
+    logger.info(
+        '[THIRD_PARTY_AUTH] get_username start. Backend=%s user_present=%s details_keys=%s',
+        backend_name,
+        bool(user),
+        sorted(details.keys()),
+    )
 
     if not user:
         email_as_username = strategy.setting('USERNAME_IS_FULL_EMAIL', False)
@@ -1006,7 +1014,16 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
 
         email = (details.get('email') or '').strip()
         provider_username = (details.get('username') or '').strip()
-        backend_name = getattr(backend, 'name', backend.__class__.__name__)
+
+        logger.info(
+            '[THIRD_PARTY_AUTH] Username source data. Backend=%s email=%s provider_username=%s '
+            'auto_generated_toggle=%s email_as_username_setting=%s',
+            backend_name,
+            email,
+            provider_username,
+            is_auto_generated_username_enabled(),
+            email_as_username,
+        )
 
         if email:
             username = email.split('@')[0].lower()
@@ -1048,6 +1065,14 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
         input_username = username
         final_username = slug_func(clean_func(username[:max_length]))
 
+        logger.info(
+            '[THIRD_PARTY_AUTH] Username post clean/slug. Backend=%s raw_input=%s cleaned_username=%s max_length=%s',
+            backend_name,
+            input_username,
+            final_username,
+            max_length,
+        )
+
         # Generate a unique username for current user using username
         # as base but adding a unique hash at the end. Original
         # username is cut to avoid any field max_length.
@@ -1064,17 +1089,23 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
             username = short_username + '-' + username_suffix_generator(this_uuid_length)
             final_username = slug_func(clean_func(username[:max_length]))
             logger.info(
-                '[THIRD_PARTY_AUTH] New username candidnate generated: '
+                '[THIRD_PARTY_AUTH] New username candidate generated: '
                 f'input_username={input_username}, '
                 f'suffix_length={this_uuid_length}, '
                 f'final_username={final_username}'
             )
     else:
         final_username = storage.user.get_username(user)
+        logger.info(
+            '[THIRD_PARTY_AUTH] Existing user detected. Backend=%s username=%s',
+            backend_name,
+            final_username,
+        )
     logger.info(
         '[THIRD_PARTY_AUTH] get_username complete: '
         f'details={details}, '
-        f'final_username={final_username}'
+        f'final_username={final_username} '
+        f'backend={backend_name}'
     )
     return {'username': final_username}
 
