@@ -6,6 +6,7 @@ Registration related views.
 import datetime
 import json
 import logging
+import re
 
 from django.conf import settings
 from django.contrib.auth import login as django_login
@@ -634,6 +635,47 @@ class RegistrationView(APIView):
             )  # setting the cookie to show account activation dialogue in platform and learning MFE
         mark_user_change_as_expected(user.id)
         return response
+
+    def _override_username_for_sso_if_needed(self, request, data):
+        """Ensure SSO registrations derive username from email prefix."""
+        if not third_party_auth.is_enabled() or not pipeline.running(request):
+            return None
+
+        email = (data.get('email') or '').strip()
+        if not email:
+            error_message = _('Single sign-on is not yet available for your account. Please create an account first.')
+            log.warning('[THIRD_PARTY_AUTH] Missing email for SSO registration; aborting username override.')
+            return self._create_response(
+                request,
+                {'error_message': [{'user_message': error_message}]},
+                status_code=400,
+                error_code='tpa-missing-email'
+            )
+
+        desired_username = email.split('@')[0].lower()
+        desired_username = re.sub(r'[^a-z0-9_-]', '_', desired_username)
+        if not desired_username:
+            desired_username = 'user'
+        desired_username = desired_username[:5]
+        provided_username = (data.get('username') or '').strip()
+        if provided_username != desired_username:
+            log.info(
+                '[THIRD_PARTY_AUTH] Overriding provided username with email prefix. '
+                'Provided=%s Desired=%s Email=%s',
+                provided_username,
+                desired_username,
+                email,
+            )
+            data['username'] = desired_username
+        else:
+            log.info(
+                '[THIRD_PARTY_AUTH] Username already matches email prefix. Username=%s Email=%s',
+                provided_username,
+                email,
+            )
+
+        return None
+
 
     def _handle_country_code_validation(self, request, data):
         # pylint: disable=no-member
