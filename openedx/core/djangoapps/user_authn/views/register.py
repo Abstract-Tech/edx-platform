@@ -596,8 +596,21 @@ class RegistrationView(APIView):
         if isinstance(sso_username_override, JsonResponse):
             return sso_username_override
 
+        log.info(
+            '[THIRD_PARTY_AUTH] Registration payload after SSO override check: '
+            'email=%s username=%s pipeline_active=%s',
+            data.get('email'),
+            data.get('username'),
+            pipeline.running(request),
+        )
+
         if is_auto_generated_username_enabled() and 'username' not in data:
             data['username'] = get_auto_generated_username(data)
+            log.info(
+                '[THIRD_PARTY_AUTH] Auto-generated username applied post-override. email=%s username=%s',
+                data.get('email'),
+                data.get('username'),
+            )
 
         try:
             # .. filter_implemented_name: StudentRegistrationRequested
@@ -621,6 +634,13 @@ class RegistrationView(APIView):
         response, user = self._create_account(request, data)
         if response:
             return response
+
+        log.info(
+            '[THIRD_PARTY_AUTH] Account creation succeeded. user_id=%s username=%s email=%s',
+            user.id if user else None,
+            user.username if user else None,
+            user.email if user else None,
+        )
 
         redirect_to, root_url = get_next_url_for_login_page(request, include_host=True)
         redirect_url = get_redirect_url_with_host(root_url, redirect_to)
