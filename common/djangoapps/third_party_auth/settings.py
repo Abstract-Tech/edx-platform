@@ -54,6 +54,7 @@ def apply_settings(django_settings):
         'social_core.pipeline.social_auth.auth_allowed',
         'social_core.pipeline.social_auth.social_user',
         'social_core.pipeline.social_auth.associate_by_email',
+        'common.djangoapps.third_party_auth.pipeline.set_user_details_from_azure_saml',
         'common.djangoapps.third_party_auth.pipeline.associate_by_email_if_login_api',
         'common.djangoapps.third_party_auth.pipeline.associate_by_email_if_oauth',
         'common.djangoapps.third_party_auth.pipeline.get_username',

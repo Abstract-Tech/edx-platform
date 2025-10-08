@@ -106,6 +106,10 @@ from common.djangoapps.util.json_request import JsonResponse
 
 from . import provider
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 # These are the query string params you can pass
 # to the URL that starts the authentication process.
 #
@@ -738,6 +742,90 @@ def login_analytics(strategy, auth_entry, current_partial=None, *args, **kwargs)
             **additional_params
         })
 
+def set_user_details_from_azure_saml(strategy, backend, uid, response, details, user=None, *args, **kwargs):
+    """
+    Extract user information from Azure AD SAML response and map it
+    to Open edX 'details' fields.
+    """
+    attrs = (response or {}).get("attributes", {}) or {}
+    if not attrs:
+        return {}
+
+    azure_attribute_keys = {
+        "http://schemas.microsoft.com/identity/claims/emailaddress",
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname",
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname",
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
+        "http://schemas.microsoft.com/identity/claims/username",
+    }
+    if not any(attrs.get(key) for key in azure_attribute_keys):
+        return {}
+
+    logger.info("[AZURE SSO] Received SAML response attributes: %s", list(attrs.keys()))
+
+    def _first_string(values):
+        """Return the first non-empty string from a SAML attribute value."""
+        if isinstance(values, (list, tuple, set)):
+            for item in values:
+                if isinstance(item, str) and item.strip():
+                    return item.strip()
+        if isinstance(values, str) and values.strip():
+            return values.strip()
+        return None
+
+    email = _first_string(attrs.get("http://schemas.microsoft.com/identity/claims/emailaddress"))
+    first_name = _first_string(attrs.get("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname"))
+    last_name = _first_string(attrs.get("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname"))
+    full_name = _first_string(attrs.get("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"))
+    username_hint = _first_string(attrs.get("http://schemas.microsoft.com/identity/claims/username"))
+
+    logger.info(
+        "[AZURE SSO] Extracted attributes → email=%s, first_name=%s, last_name=%s, full_name=%s, username_hint=%s",
+        email,
+        first_name,
+        last_name,
+        full_name,
+        username_hint,
+    )
+
+    updates = {}
+
+    if first_name:
+        updates["first_name"] = first_name
+    if last_name:
+        updates["last_name"] = last_name
+
+    derived_fullname = full_name or " ".join(filter(None, [first_name, last_name]))
+    if not derived_fullname and email:
+        derived_fullname = email.split("@")[0]
+    if derived_fullname:
+        updates["fullname"] = derived_fullname
+
+    if email:
+        updates["email"] = email
+    else:
+        logger.warning("[AZURE SSO] No email found in SAML response!")
+
+    username = None
+    if username_hint:
+        username = username_hint.lower()
+        logger.info("[AZURE SSO] Using username from Azure: %s", username)
+    elif email:
+        username = email.split("@")[0].lower()
+        logger.info("[AZURE SSO] Username derived from email prefix: %s", username)
+    elif derived_fullname:
+        username = derived_fullname.replace(" ", "").lower()
+        logger.info("[AZURE SSO] Username derived from fullname: %s", username)
+
+    if username:
+        updates["username"] = username
+
+    if updates:
+        details.update(updates)
+        logger.info("[AZURE SSO] Final parsed user details: %s", updates)
+
+    return {"details": details}
+
 
 @partial.partial
 def associate_by_email_if_login_api(auth_entry, backend, details, user, current_partial=None, *args, **kwargs):  # lint-amnesty, pylint: disable=keyword-arg-before-vararg
@@ -1015,6 +1103,64 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
         email = (details.get('email') or '').strip()
         provider_username = (details.get('username') or '').strip()
 
+        def _first_string(value):
+            """
+            Return the first non-empty string contained in `value`.
+            Values coming from SAML attributes are usually lists, but we defensively
+            handle single values and unexpected data structures as well.
+            """
+            if isinstance(value, (list, tuple, set)):
+                for candidate in value:
+                    if isinstance(candidate, str) and candidate.strip():
+                        return candidate.strip()
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+            return ''
+
+        if not provider_username:
+            is_saml, current_provider = is_saml_provider(backend_name, kwargs)
+            if is_saml:
+                response_payload = kwargs.get('response') or {}
+                attributes = response_payload.get('attributes') or {}
+                attribute_keys = []
+
+                if current_provider and current_provider.attr_username:
+                    attribute_keys.append(current_provider.attr_username)
+
+                # Fallback keys cover the most common username-related claims we see from IdPs.
+                attribute_keys.extend([
+                    'username',
+                    'User.username',
+                    'urn:oid:0.9.2342.19200300.100.1.1',  # uid
+                    'urn:oid:1.3.6.1.4.1.5923.1.1.1.6',   # eduPersonPrincipalName
+                    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
+                    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn',
+                ])
+
+                seen_keys = set()
+                for key in attribute_keys:
+                    if not key or key in seen_keys or not isinstance(attributes, dict):
+                        continue
+                    seen_keys.add(key)
+                    provider_username = _first_string(attributes.get(key))
+                    if provider_username:
+                        logger.info(
+                            '[THIRD_PARTY_AUTH] Username derived from SAML attribute. Backend=%s Attribute=%s Value=%s',
+                            backend_name,
+                            key,
+                            provider_username,
+                        )
+                        break
+
+                if not provider_username:
+                    provider_username = _first_string(response_payload.get('name_id'))
+                    if provider_username:
+                        logger.info(
+                            '[THIRD_PARTY_AUTH] Username derived from SAML NameID. Backend=%s NameID=%s',
+                            backend_name,
+                            provider_username,
+                        )
+
         logger.info(
             '[THIRD_PARTY_AUTH] Username source data. Backend=%s email=%s provider_username=%s '
             'auto_generated_toggle=%s email_as_username_setting=%s',
@@ -1025,20 +1171,20 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
             email_as_username,
         )
 
-        if email:
+        if provider_username:
+            username = provider_username
+            logger.info(
+                '[THIRD_PARTY_AUTH] Username supplied by provider. Backend=%s ProviderUsername=%s',
+                backend_name,
+                provider_username,
+            )
+        elif email:
             username = email.split('@')[0].lower()
             logger.info(
                 '[THIRD_PARTY_AUTH] Username chosen from email prefix. Backend=%s Email=%s Username=%s',
                 backend_name,
                 email,
                 username,
-            )
-        elif provider_username:
-            username = provider_username
-            logger.info(
-                '[THIRD_PARTY_AUTH] Username supplied by provider. Backend=%s ProviderUsername=%s',
-                backend_name,
-                provider_username,
             )
         elif is_auto_generated_username_enabled():
             # If we cannot derive a meaningful username, stop the pipeline so the learner can create an account first.
