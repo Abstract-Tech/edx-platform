@@ -747,8 +747,11 @@ def set_user_details_from_azure_saml(strategy, backend, uid, response, details, 
     Extract user information from Azure AD SAML response and map it
     to Open edX 'details' fields.
     """
+    backend_name = getattr(backend, 'name', backend.__class__.__name__)
+    logger.info("[AZURE SSO] Pipeline step invoked. Backend=%s UID=%s", backend_name, uid)
     attrs = (response or {}).get("attributes", {}) or {}
     if not attrs:
+        logger.info("[AZURE SSO] No attributes present in SAML response. Backend=%s", backend_name)
         return {}
 
     azure_attribute_keys = {
@@ -759,6 +762,11 @@ def set_user_details_from_azure_saml(strategy, backend, uid, response, details, 
         "http://schemas.microsoft.com/identity/claims/username",
     }
     if not any(attrs.get(key) for key in azure_attribute_keys):
+        logger.info(
+            "[AZURE SSO] Expected Azure attribute keys missing. Backend=%s AvailableKeys=%s",
+            backend_name,
+            list(attrs.keys()),
+        )
         return {}
 
     logger.info("[AZURE SSO] Received SAML response attributes: %s", list(attrs.keys()))
@@ -823,6 +831,8 @@ def set_user_details_from_azure_saml(strategy, backend, uid, response, details, 
     if updates:
         details.update(updates)
         logger.info("[AZURE SSO] Final parsed user details: %s", updates)
+    else:
+        logger.info("[AZURE SSO] No detail updates generated despite Azure attribute presence.")
 
     return {"details": details}
 
@@ -1118,10 +1128,16 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
             return ''
 
         if not provider_username:
+            logger.info('[THIRD_PARTY_AUTH] Provider did not supply username before SAML fallback. Backend=%s', backend_name)
             is_saml, current_provider = is_saml_provider(backend_name, kwargs)
             if is_saml:
                 response_payload = kwargs.get('response') or {}
                 attributes = response_payload.get('attributes') or {}
+                logger.info(
+                    '[THIRD_PARTY_AUTH] Attempting SAML attribute username extraction. Backend=%s AttributeKeys=%s',
+                    backend_name,
+                    list(attributes.keys()) if isinstance(attributes, dict) else type(attributes),
+                )
                 attribute_keys = []
 
                 if current_provider and current_provider.attr_username:
@@ -1153,6 +1169,7 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
                         break
 
                 if not provider_username:
+                    logger.info('[THIRD_PARTY_AUTH] SAML attribute search did not yield username. Backend=%s', backend_name)
                     provider_username = _first_string(response_payload.get('name_id'))
                     if provider_username:
                         logger.info(
@@ -1160,6 +1177,8 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
                             backend_name,
                             provider_username,
                         )
+            else:
+                logger.info('[THIRD_PARTY_AUTH] Backend is not SAML; skipping SAML username fallback. Backend=%s', backend_name)
 
         logger.info(
             '[THIRD_PARTY_AUTH] Username source data. Backend=%s email=%s provider_username=%s '
@@ -1187,11 +1206,23 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
                 username,
             )
         elif is_auto_generated_username_enabled():
-            # If we cannot derive a meaningful username, stop the pipeline so the learner can create an account first.
-            raise AuthException(
-                backend,
-                'Single sign-on is not yet available for your account. Please create an account first.'
-            )
+            # Try custom fallback before raising exception
+            email = details.get("email")
+            if email:
+                username = email.split("@")[0].lower()
+                logger.info(
+                    '[THIRD_PARTY_AUTH] Custom logic (auto-generation on): using email prefix. Backend=%s Email=%s Username=%s',
+                    backend_name,
+                    email,
+                    username,
+                )
+            else:
+                username = get_auto_generated_username(details)
+                logger.info(
+                    '[THIRD_PARTY_AUTH] Fallback to get_auto_generated_username(). Backend=%s Username=%s',
+                    backend_name,
+                    username,
+                )
         elif email_as_username and email:
             username = email
             logger.info(
