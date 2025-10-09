@@ -594,21 +594,8 @@ class RegistrationView(APIView):
         if isinstance(sso_username_override, JsonResponse):
             return sso_username_override
 
-        log.info(
-            '[THIRD_PARTY_AUTH] Registration payload after SSO override check: '
-            'email=%s username=%s pipeline_active=%s',
-            data.get('email'),
-            data.get('username'),
-            pipeline.running(request),
-        )
-
         if is_auto_generated_username_enabled() and 'username' not in data:
             data['username'] = get_auto_generated_username(data)
-            log.info(
-                '[THIRD_PARTY_AUTH] Auto-generated username applied post-override. email=%s username=%s',
-                data.get('email'),
-                data.get('username'),
-            )
 
         try:
             data = StudentRegistrationRequested.run_filter(form_data=data)
@@ -672,10 +659,11 @@ class RegistrationView(APIView):
             )
 
         desired_username = email.split('@')[0].lower()
-        desired_username = re.sub(r'[^a-z0-9_-]', '_', desired_username)
+        desired_username = re.sub(r'[^a-z0-9]+', '-', desired_username)
+        desired_username = re.sub(r'-+', '-', desired_username).strip('-')
         if not desired_username:
             desired_username = 'user'
-        desired_username = desired_username[:5]
+        desired_username = desired_username[:accounts_settings.USERNAME_MAX_LENGTH]
         provided_username = (data.get('username') or '').strip()
         if provided_username != desired_username:
             log.info(
