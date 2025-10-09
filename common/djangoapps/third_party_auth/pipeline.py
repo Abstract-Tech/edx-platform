@@ -106,6 +106,7 @@ from common.djangoapps.util.json_request import JsonResponse
 
 from . import provider
 
+
 # These are the query string params you can pass
 # to the URL that starts the authentication process.
 #
@@ -740,6 +741,7 @@ def login_analytics(strategy, auth_entry, current_partial=None, *args, **kwargs)
             'provider': kwargs['backend'].name,
             **additional_params
         })
+
 
 @partial.partial
 def associate_by_email_if_login_api(auth_entry, backend, details, user, current_partial=None, *args, **kwargs):  # lint-amnesty, pylint: disable=keyword-arg-before-vararg
