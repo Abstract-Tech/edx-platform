@@ -741,7 +741,6 @@ def login_analytics(strategy, auth_entry, current_partial=None, *args, **kwargs)
             **additional_params
         })
 
-
 @partial.partial
 def associate_by_email_if_login_api(auth_entry, backend, details, user, current_partial=None, *args, **kwargs):  # lint-amnesty, pylint: disable=keyword-arg-before-vararg
     """
@@ -982,6 +981,7 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
     if 'username' not in backend.setting('USER_FIELDS', USER_FIELDS):
         return
     storage = strategy.storage
+    backend_name = getattr(backend, 'name', backend.__class__.__name__)
 
     if not user:
         email_as_username = strategy.setting('USERNAME_IS_FULL_EMAIL', False)
@@ -1009,20 +1009,88 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
         else:
             slug_func = lambda val: val
 
-        if is_auto_generated_username_enabled() and details.get('username') is None:
-            username = get_auto_generated_username(details)
-        else:
-            # ✅ Custom code start — prefer email prefix if available
+        email = (details.get('email') or '').strip()
+        provider_username = (details.get('username') or '').strip()
+
+        def _first_string(value):
+            """
+            Return the first non-empty string contained in `value`.
+            Values coming from SAML attributes are usually lists, but we defensively
+            handle single values and unexpected data structures as well.
+            """
+            if isinstance(value, (list, tuple, set)):
+                for candidate in value:
+                    if isinstance(candidate, str) and candidate.strip():
+                        return candidate.strip()
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+            return ''
+
+        if not provider_username:
+            is_saml, current_provider = is_saml_provider(backend_name, kwargs)
+            if is_saml:
+                response_payload = kwargs.get('response') or {}
+                attributes = response_payload.get('attributes') or {}
+                attribute_keys = []
+
+                if current_provider and current_provider.attr_username:
+                    attribute_keys.append(current_provider.attr_username)
+
+                # Fallback keys cover the most common username-related claims we see from IdPs.
+                attribute_keys.extend([
+                    'http://schemas.microsoft.com/identity/claims/username',
+                    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
+                    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn',
+                ])
+
+                seen_keys = set()
+                for key in attribute_keys:
+                    if not key or key in seen_keys or not isinstance(attributes, dict):
+                        continue
+                    seen_keys.add(key)
+                    provider_username = _first_string(attributes.get(key))
+                    if provider_username:
+                        break
+
+                if not provider_username:
+                    provider_username = _first_string(response_payload.get('name_id'))
+
+        if provider_username:
+            username = provider_username
+            logger.info(
+                '[THIRD_PARTY_AUTH] Username supplied by provider. Backend=%s ProviderUsername=%s',
+                backend_name,
+                provider_username,
+            )
+        elif email:
+            username = email.split('@')[0].lower()
+            logger.info(
+                '[THIRD_PARTY_AUTH] Username chosen from email prefix. Backend=%s Email=%s Username=%s',
+                backend_name,
+                email,
+                username,
+            )
+        elif is_auto_generated_username_enabled():
+            # Try custom fallback before raising exception
             email = details.get("email")
             if email:
                 username = email.split("@")[0].lower()
-            elif email_as_username and details.get('email'):
-                username = details['email']
-            elif details.get('username'):
-                username = details['username']
             else:
-                username = uuid4().hex
-
+                username = get_auto_generated_username(details)
+        elif email_as_username and email:
+            username = email
+            logger.info(
+                '[THIRD_PARTY_AUTH] Username falls back to full email. Backend=%s Email=%s',
+                backend_name,
+                email,
+            )
+        else:
+            username = uuid4().hex
+            logger.info(
+                '[THIRD_PARTY_AUTH] Username auto-generated as hex fallback. Backend=%s Username=%s',
+                backend_name,
+                username,
+            )
 
         input_username = username
         final_username = slug_func(clean_func(username[:max_length]))

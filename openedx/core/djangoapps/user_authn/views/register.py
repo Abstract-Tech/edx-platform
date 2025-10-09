@@ -592,6 +592,10 @@ class RegistrationView(APIView):
         data = request.POST.copy()
         self._handle_terms_of_service(data)
 
+        sso_username_override = self._override_username_for_sso_if_needed(request, data)
+        if isinstance(sso_username_override, JsonResponse):
+            return sso_username_override
+
         if is_auto_generated_username_enabled() and 'username' not in data:
             data['username'] = get_auto_generated_username(data)
 
@@ -653,10 +657,11 @@ class RegistrationView(APIView):
             )
 
         desired_username = email.split('@')[0].lower()
-        desired_username = re.sub(r'[^a-z0-9_-]', '_', desired_username)
+        desired_username = re.sub(r'[^a-z0-9]+', '-', desired_username)
+        desired_username = re.sub(r'-+', '-', desired_username).strip('-')
         if not desired_username:
             desired_username = 'user'
-        desired_username = desired_username[:5]
+        desired_username = desired_username[:accounts_settings.USERNAME_MAX_LENGTH]
         provided_username = (data.get('username') or '').strip()
         if provided_username != desired_username:
             log.info(
