@@ -10,6 +10,15 @@
         'teams/js/views/team_utils',
         'text!teams/templates/manage.underscore'
     ], function(Backbone, _, gettext, HtmlUtils, ViewUtils, TeamUtils, manageTemplate) {
+        var revealBanner = function() {
+            var $banner = $('#team-management-assign .page-banner');
+            if ($banner.length) {
+                $banner.prop('hidden', false)
+                    .removeAttr('hidden')
+                    .attr('aria-hidden', false);
+            }
+        };
+
         var ManageView = Backbone.View.extend({
 
             srInfo: {
@@ -34,6 +43,11 @@
                     this.$el,
                     HtmlUtils.template(manageTemplate)({})
                 );
+                this.$('#team-management-assign .page-banner')
+                    .removeAttr('hidden')
+                    .prop('hidden', false)
+                    .attr('aria-hidden', true)
+                    .hide();
                 this.delegateEvents(this.events);
                 return this;
             },
@@ -56,6 +70,7 @@
             uploadCsv: function() {
                 var formData = new FormData();
                 formData.append('csv', this.membershipFile); // xss-lint: disable=javascript-jquery-append
+                revealBanner();
 
                 return $.ajax({
                     type: 'POST',
