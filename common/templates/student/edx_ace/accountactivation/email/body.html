@@ -26,11 +26,11 @@
                  {% filter force_escape %}
                     {% blocktrans %}
                     Es ist fast geschafft!
+                    <br />
                     Um Ihren Zugang zur {{ platform_name }} freizuschalten und direkt mit den Lerninhalten zu starten, bestätigen Sie bitte kurz Ihre E-Mail-Adresse über den untenstehenden Link.
                     Bitte beachten Sie: Ein Login ist erst möglich, nachdem die Aktivierung erfolgt ist.
                     {% endblocktrans %}
                 {% endfilter %}
-
                 <br />
             </p>
 
@@ -55,10 +55,7 @@
                 {% blocktrans trimmed asvar assist_msg %}
                 Sollten Sie Fragen haben, erreichen Sie uns über unser {start_anchor_portal}Service Portal{end_anchor} oder per E-Mail unter {start_anchor_email}{{ support_email }}{end_anchor}.
                 {% endblocktrans %}
-                {% interpolate_html assist_msg
-                    start_anchor_portal='<a href="https://support.docs.impower.de/servicedesk/customer/user/login?destination=portals">'|safe
-                    start_anchor_email='<a href="mailto:'|add:support_email|add:'">'|safe
-                    end_anchor='</a>'|safe %}
+                {% interpolate_html assist_msg start_anchor_portal='<a href="https://support.docs.impower.de/servicedesk/customer/user/login?destination=portals">'|safe start_anchor_email='<a href="mailto:'|add:support_email|add:'">'|safe end_anchor='</a>'|safe %}
                 <br />
             </p>
         </td>
