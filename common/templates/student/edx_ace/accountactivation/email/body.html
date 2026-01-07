@@ -22,16 +22,18 @@
             <h1>
                 {% trans "Account activation" as header_msg %}{{ header_msg | force_escape }}
             </h1>
+            <p style="color: rgba(0,0,0,.75);">
+                {% filter force_escape %}
+                    {% blocktrans %}Es ist fast geschafft!{% endblocktrans %}
+                {% endfilter %}
+            </p>
             <p style="color: rgba(0,0,0,.75); margin-bottom: 15px;">
                  {% filter force_escape %}
                     {% blocktrans %}
-                    Es ist fast geschafft!
-                    <br />
                     Um Ihren Zugang zur {{ platform_name }} freizuschalten und direkt mit den Lerninhalten zu starten, bestätigen Sie bitte kurz Ihre E-Mail-Adresse über den untenstehenden Link.
                     Bitte beachten Sie: Ein Login ist erst möglich, nachdem die Aktivierung erfolgt ist.
                     {% endblocktrans %}
                 {% endfilter %}
-                <br />
             </p>
 
             {% filter force_escape %}
