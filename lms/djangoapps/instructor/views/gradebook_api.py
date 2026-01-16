@@ -16,6 +16,7 @@ from common.djangoapps.edxmako.shortcuts import render_to_response
 from lms.djangoapps.courseware.courses import get_course_with_access
 from lms.djangoapps.grades.api import CourseGradeFactory
 from lms.djangoapps.instructor.views.api import require_course_permission
+from openedx.core.djangoapps.content.block_structure.api import get_block_structure_manager
 from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
 
 from .. import permissions
@@ -87,13 +88,18 @@ def get_grade_book_page(request, course, course_key):
         # Apply limit on queryset only if total number of students are greater then MAX_STUDENTS_PER_PAGE_GRADE_BOOK.
         enrolled_students = enrolled_students[offset: offset + MAX_STUDENTS_PER_PAGE_GRADE_BOOK]
 
+    collected_block_structure = get_block_structure_manager(course_key).get_collected()
     with modulestore().bulk_operations(course.location.course_key):
         student_info = [
             {
                 'username': student.username,
                 'id': student.id,
                 'email': student.email,
-                'grade_summary': CourseGradeFactory().read(student, course).summary
+                'grade_summary': CourseGradeFactory().read(
+                    student,
+                    course,
+                    collected_block_structure=collected_block_structure
+                ).summary
             }
             for student in enrolled_students
         ]

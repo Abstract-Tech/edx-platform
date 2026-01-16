@@ -555,6 +555,8 @@ class GradebookView(GradeViewMixin, PaginatedAPIView):
                     course,
                     collected_block_structure=course_data.collected_structure
                 )
+                # Ensure grading policy changes are reflected in the response.
+                course_grade.update(visible_grades_only=False, has_staff_access=True)
             entry = self._gradebook_entry(grade_user, course, graded_subsections, course_grade)
             serializer = StudentGradebookEntrySerializer(entry)
             return Response(serializer.data)
@@ -664,6 +666,8 @@ class GradebookView(GradeViewMixin, PaginatedAPIView):
                     users, course_key=course_key, collected_block_structure=course_data.collected_structure
                 ):
                     if not exc:
+                        # Ensure grading policy changes are reflected in the response.
+                        course_grade.update(visible_grades_only=False, has_staff_access=True)
                         entry = self._gradebook_entry(user, course, graded_subsections, course_grade)
                         entries.append(entry)
 
