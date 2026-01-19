@@ -62,6 +62,7 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 from collections import OrderedDict
 from logging import getLogger
 from smtplib import SMTPException
@@ -118,6 +119,8 @@ from . import provider
 # (if not provided, defaults to `_SOCIAL_AUTH_LOGIN_REDIRECT_URL`)
 AUTH_ENTRY_KEY = 'auth_entry'
 AUTH_REDIRECT_KEY = 'next'
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 # The following are various possible values for the AUTH_ENTRY_KEY.
@@ -891,6 +894,11 @@ def user_details_force_sync(auth_entry, strategy, details, user=None, *args, **k
         for provider_field, (model, field) in field_mapping.items():
             provider_value = details.get(provider_field)
             current_value = getattr(model, field)
+            if provider_field == 'fullname':
+                current_name = (current_value or '').strip()
+                username = (user.username or '').strip()
+                if current_name and not EMAIL_RE.match(current_name) and current_name != username:
+                    continue
             if provider_value is not None and current_value != provider_value:
                 if field in integrity_conflict_fields and User.objects.filter(**{field: provider_value}).exists():
                     logger.warning('[THIRD_PARTY_AUTH] Profile data synchronization conflict. '
