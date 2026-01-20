@@ -2002,3 +2002,23 @@ def create_course_access_role_history_on_delete(sender, instance, **kwargs):
         action_type='deleted',
         changed_by=current_user if current_user and current_user.is_authenticated else None
     )
+
+import requests
+import time
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
+@receiver(post_save, sender=User)
+def notify_slack_on_new_marketable_user(sender, instance, created, **kwargs):
+    try:
+        user_attr = UserAttribute.objects.get(user=instance, name='is_marketable')
+        if user_attr.value == 'true':
+            message = {
+                    "text": f"New marketable user signed up: {instance.username} ({instance.email})"
+            }
+            response = requests.post(settings.SLACK_WEBHOOK_URL, json=message)
+    except UserAttribute.DoesNotExist:
+       logger.warning(f"UserAttribute 'is_marketable' does not exist for user: {instance.username}")
+    except Exception as e:
+        logger.error(f"Error notifying Slack for user {instance.username}: {str(e)}")

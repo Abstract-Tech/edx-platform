@@ -29,6 +29,7 @@ from openedx.core.lib.api.view_utils import LazySequence
 from openedx.features.course_experience import course_home_url
 from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
 from xmodule.modulestore.exceptions import ItemNotFoundError  # lint-amnesty, pylint: disable=wrong-import-order
+from lms.djangoapps.courseware.access import has_staff_access_to_preview_mode
 
 from .exceptions import OverEnrollmentLimitException
 from .permissions import can_view_courses_for_username
@@ -170,6 +171,8 @@ def list_courses(request,
         user, org=org, filter_=filter_, permissions=permissions, active_only=active_only, course_keys=course_keys
     )
     course_qs = _filter_by_search(course_qs, search_term, mobile_search)
+    course_qs = [ c for c in course_qs if( (c.number in ['01-2024','DemoX','03','09-2024']) or (has_staff_access_to_preview_mode(request.user, c.id )) )]
+
     return course_qs
 
 

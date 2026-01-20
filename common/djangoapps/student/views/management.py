@@ -89,6 +89,7 @@ from common.djangoapps.util.db import outer_atomic
 from common.djangoapps.util.json_request import JsonResponse
 from common.djangoapps.student.signals import USER_EMAIL_CHANGED
 from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
+from lms.djangoapps.courseware.access import has_staff_access_to_preview_mode
 
 log = logging.getLogger("edx.student")
 
@@ -144,7 +145,8 @@ def index(request, extra_context=None, user=AnonymousUser()):
         courses = sort_by_start_date(courses)
     else:
         courses = sort_by_announcement(courses)
-
+    
+    courses = [ c for c in courses if( (c.number in ['01-2024','DemoX','03','09-2024']) or (has_staff_access_to_preview_mode(request.user, c.id )) )]
     context = {'courses': courses}
 
     context['homepage_overlay_html'] = configuration_helpers.get_value('homepage_overlay_html')
