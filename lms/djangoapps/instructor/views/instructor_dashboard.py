@@ -605,8 +605,12 @@ def _section_student_admin(course, access):
         ),
         'spoc_gradebook_url': reverse('spoc_gradebook', kwargs={'course_id': str(course_key)}),
     }
-    if is_writable_gradebook_enabled(course_key) and settings.WRITABLE_GRADEBOOK_URL:
-        section_data['writable_gradebook_url'] = f'{settings.WRITABLE_GRADEBOOK_URL}/{str(course_key)}'
+    gradebook_base_url = configuration_helpers.get_value(
+        'GRADEBOOK_MFE_BASE_URL',
+        settings.WRITABLE_GRADEBOOK_URL,
+    )
+    if is_writable_gradebook_enabled(course_key) and gradebook_base_url:
+        section_data['writable_gradebook_url'] = f'{gradebook_base_url.rstrip("/")}/{str(course_key)}'
     return section_data
 
 
