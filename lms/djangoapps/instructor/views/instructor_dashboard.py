@@ -771,6 +771,17 @@ def _section_open_response_assessment(request, course, openassessment_blocks, ac
     """Provide data for the corresponding dashboard section """
     course_key = course.id
 
+    mfe_config = get_mfe_config_for_site(request=request, mfe="ora-grading")
+    ora_grading_base_url = (
+        mfe_config.get("ORA_GRADING_MFE_BASE_URL")
+        or mfe_config.get("ORA_GRADING_MICROFRONTEND_URL")
+        or settings.ORA_GRADING_MICROFRONTEND_URL
+    )
+    if ora_grading_base_url:
+        # openassessment (edx-ora2) reads ORA_GRADING_MICROFRONTEND_URL directly from settings
+        # while building the staff grader link, so set it here for this request.
+        setattr(settings, 'ORA_GRADING_MICROFRONTEND_URL', ora_grading_base_url)
+
     ora_items = []
     parents = {}
 
@@ -805,7 +816,8 @@ def _section_open_response_assessment(request, course, openassessment_blocks, ac
     section_data = {
         'fragment': block.render('ora_blocks_listing_view', context={
             'ora_items': ora_items,
-            'ora_item_view_enabled': settings.FEATURES.get('ENABLE_XBLOCK_VIEW_ENDPOINT', False)
+            'ora_item_view_enabled': settings.FEATURES.get('ENABLE_XBLOCK_VIEW_ENDPOINT', False),
+            'ora_grading_mfe_base_url': ora_grading_base_url,
         }),
         'section_key': 'open_response_assessment',
         'section_display_name': _('Open Responses'),
