@@ -26,7 +26,8 @@ def get_mfe_config_for_site(request=None, site=None, mfe=None):
                 microite_mfe_host = f"{scheme}://{site_domain}"
 
             lms_microsite = f"{scheme}://{site_domain}"
-            mfe_config["DISCUSSIONS_MFE_BASE_URL"] = mfe_config.get("DISCUSSIONS_MFE_BASE_URL",f"{microite_mfe_host}/discussions")
+            mfe_config["DISCUSSIONS_MFE_BASE_URL"] = mfe_config.get("DISCUSSIONS_MFE_BASE_URL", f"{microite_mfe_host}/discussions")
+            mfe_config["ORA_GRADING_MFE_BASE_URL"] = mfe_config.get("ORA_GRADING_MFE_BASE_URL", f"{microite_mfe_host}/ora-grading")
             default_config = configuration_helpers.get_value('MFE_CONFIG', settings.MFE_CONFIG)
             default_config.update(mfe_config)
             mfe_config = default_config
