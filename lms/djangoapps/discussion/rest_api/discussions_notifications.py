@@ -1,12 +1,14 @@
 """
 Discussion notifications sender util.
 """
+import logging
 import re
 
 from bs4 import BeautifulSoup, Tag
 from django.conf import settings
 from django.utils.text import Truncator
 
+from common.djangoapps.student.models import CourseEnrollment
 from lms.djangoapps.discussion.django_comment_client.permissions import get_team
 from openedx_events.learning.data import UserNotificationData, CourseNotificationData
 from openedx_events.learning.signals import USER_NOTIFICATION_REQUESTED, COURSE_NOTIFICATION_REQUESTED
@@ -23,6 +25,8 @@ from openedx.core.djangoapps.django_comment_common.models import (
     FORUM_ROLE_MODERATOR,
     CourseDiscussionSettings,
 )
+
+log = logging.getLogger(__name__)
 
 
 class DiscussionNotificationSender:
@@ -49,6 +53,35 @@ class DiscussionNotificationSender:
             return
         self.comment = Comment(id=self.comment_id).retrieve()
 
+    def _filter_active_enrollment_recipients(self, user_ids):
+        """
+        Filter recipients to only those actively enrolled in the course.
+        """
+        normalized_user_ids = [int(user_id) for user_id in user_ids]
+        if not normalized_user_ids:
+            return []
+
+        active_user_ids = set(
+            CourseEnrollment.objects.filter(
+                user_id__in=normalized_user_ids,
+                course_id=self.course.id,
+                is_active=True,
+            ).values_list('user_id', flat=True)
+        )
+        filtered_user_ids = []
+        for user_id in normalized_user_ids:
+            if user_id in active_user_ids:
+                filtered_user_ids.append(user_id)
+            else:
+                # Avoid sending discussion notifications to unenrolled learners.
+                log.debug(
+                    "Skipping discussion notification recipient due to inactive enrollment: "
+                    "user_id=%s course_id=%s",
+                    user_id,
+                    self.course.id,
+                )
+        return filtered_user_ids
+
     def _send_notification(self, user_ids, notification_type, extra_context=None):
         """
         Send notification to users
@@ -59,8 +92,12 @@ class DiscussionNotificationSender:
         if extra_context is None:
             extra_context = {}
 
+        user_ids = self._filter_active_enrollment_recipients(user_ids)
+        if not user_ids:
+            return
+
         notification_data = UserNotificationData(
-            user_ids=[int(user_id) for user_id in user_ids],
+            user_ids=user_ids,
             context={
                 "replier_name": self.creator.username,
                 "post_title": self.thread.title,
