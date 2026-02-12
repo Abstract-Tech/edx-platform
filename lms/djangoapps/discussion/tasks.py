@@ -89,8 +89,9 @@ def send_ace_message(context):  # lint-amnesty, pylint: disable=missing-function
 
     # Your customization: loop through enrolled users
     enrolled_users_ids = CourseEnrollment.objects.filter(
-        course_id=context['course_id']
-    ).values_list("user", flat=True)
+        course_id=context['course_id'],
+        is_active=True,
+    ).values_list("user_id", flat=True)
 
     for user_id in enrolled_users_ids:
         context["thread_author_id"] = user_id
