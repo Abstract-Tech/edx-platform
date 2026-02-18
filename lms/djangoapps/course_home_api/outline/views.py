@@ -475,7 +475,11 @@ class CourseNavigationBlocksView(RetrieveAPIView):
             if not navigation_sidebar_caching_is_disabled:
                 cache.set(cache_key, course_blocks, self.COURSE_BLOCKS_CACHE_TIMEOUT)
 
-        course_blocks = self.filter_inaccessible_blocks(course_blocks, course_key)
+        # For publicly visible courses accessed by anonymous users, the block tree is already
+        # built with anonymous context above. Skipping per-user outline filtering here prevents
+        # public outlines from being stripped to empty by user-specific processors.
+        if not (request.user.is_anonymous and (allow_public_outline or allow_public)):
+            course_blocks = self.filter_inaccessible_blocks(course_blocks, course_key)
         course_blocks = self.mark_complete_recursive(course_blocks)
 
         context = self.get_serializer_context()
@@ -597,6 +601,9 @@ class CourseNavigationBlocksView(RetrieveAPIView):
         Dictionary keys are block keys and values are int values
         representing the completion status of the block.
         """
+        if self.request.user.is_anonymous:
+            return {}
+        
         course_key_string = self.kwargs.get('course_key_string')
         course_key = CourseKey.from_string(course_key_string)
         completions = BlockCompletion.objects.filter(user=self.request.user, context_key=course_key).values_list(
