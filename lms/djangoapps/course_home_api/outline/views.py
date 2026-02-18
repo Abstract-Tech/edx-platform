@@ -478,8 +478,8 @@ class CourseNavigationBlocksView(RetrieveAPIView):
         # For publicly visible courses accessed by anonymous users, the block tree is already
         # built with anonymous context above. Skipping per-user outline filtering here prevents
         # public outlines from being stripped to empty by user-specific processors.
-        if not (request.user.is_anonymous and (allow_public_outline or allow_public)):
-            course_blocks = self.filter_inaccessible_blocks(course_blocks, course_key)
+        # if not (request.user.is_anonymous and (allow_public_outline or allow_public)):
+        course_blocks = self.filter_inaccessible_blocks(course_blocks, course_key)
         course_blocks = self.mark_complete_recursive(course_blocks)
 
         context = self.get_serializer_context()
