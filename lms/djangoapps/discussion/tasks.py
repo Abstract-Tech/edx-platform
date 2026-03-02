@@ -87,7 +87,7 @@ class CommentNotification(BaseMessageType):
 @set_code_owner_attribute
 def send_ace_message(context):  # lint-amnesty, pylint: disable=missing-function-docstring
     context['course_id'] = CourseKey.from_string(context['course_id'])
-    is_subcomment = _is_subcomment(context['comment_id'])
+    is_subcomment = _is_subcomment(context)
 
     enrolled_users_ids = CourseEnrollment.objects.filter(
         course_id=context['course_id'],
@@ -214,11 +214,11 @@ def _is_discussion_email_enabled_for_user(user_id, course_id):
 
 
 def _should_send_message(context):
-    return not _is_subcomment(context['comment_id']) and not _comment_author_is_thread_author(context)
+    return not _is_subcomment(context) and not _comment_author_is_thread_author(context)
 
 
 def _should_send_subcomment_message(context):
-    return _is_subcomment(context['comment_id']) and not _comment_author_is_thread_author(context)
+    return _is_subcomment(context) and not _comment_author_is_thread_author(context)
 
 
 def _comment_author_is_thread_author(context):
@@ -231,9 +231,8 @@ def _is_content_still_reported(context):
     return len(cc.Thread.find(context['thread_id']).abuse_flaggers) > 0
 
 
-def _is_subcomment(comment_id):
-    comment = cc.Comment.find(id=comment_id).retrieve()
-    return getattr(comment, 'parent_id', None)
+def _is_subcomment(context):
+    return bool(context.get('comment_parent_id'))
 
 
 def _is_first_comment(comment_id, thread_id):  # lint-amnesty, pylint: disable=missing-function-docstring
