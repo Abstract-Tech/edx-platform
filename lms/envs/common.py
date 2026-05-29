@@ -2474,8 +2474,8 @@ MOBILE_STORE_LOGO_URLS = {
     'apple': 'http://email-media.s3.amazonaws.com/edX/2021/store_apple_229x78.jpg',
 }
 
-# Email logo URL - SVG logo for scalability, can be overridden in environment settings
-LOGO_URL_PNG_FOR_EMAIL = '/static/images/logo.svg'
+# Email logo URL - SVG logo for scalability using full LMS URL
+LOGO_URL_PNG_FOR_EMAIL = Derived(lambda settings: (settings.LMS_ROOT_URL or '') + '/static/images/logo.svg')
 
 
 # The display dictionary defines the title
