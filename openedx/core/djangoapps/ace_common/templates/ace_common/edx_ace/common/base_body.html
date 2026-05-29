@@ -71,7 +71,7 @@
                     <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#F5F5F5">
                       <tr><td height="10" style="line-height:1px;">&nbsp;</td></tr>
                       <tr>
-                        <td align="left" valign="top" style="padding:0 60px;" class="padding_none">
+                        <td align="left" valign="top" style="padding:0 10px;" class="padding_none">
                           <table cellpadding="0" cellspacing="0" align="left" class="width_100percent">
                             <tr>
                               <td align="center" valign="top">
@@ -142,107 +142,7 @@
 
 <tr>
   <!-- FOOTER -->
-  <td class="footer" style="padding: 20px; background-color: #f5f5f5;">
-    <table role="presentation" width="100%" align="left" border="0" cellpadding="0" cellspacing="0">
-      <tr>
-        <td style="padding-bottom: 20px;">
-          <!-- SOCIAL -->
-          <table role="presentation" align="{{ LANGUAGE_BIDI|yesno:"right,left" }}" border="0" border="0" cellpadding="0" cellspacing="0" width="210">
-            <tr>
-              {% if social_media_urls.linkedin %}
-                <td height="32" width="42">
-                  <a href="{{ social_media_urls.linkedin|safe }}">
-                    <img src="{{ social_media_logo_urls.linkedin }}"
-                      width="32" height="32" alt="{% filter force_escape %}{% blocktrans %}{{ platform_name }} on LinkedIn{% endblocktrans %}{% endfilter %}"/>
-                  </a>
-                </td>
-              {% endif %}
-              {% if social_media_urls.twitter %}
-                <td height="32" width="42">
-                  <a href="{{ social_media_urls.twitter|safe }}">
-                    <img src= "{{ social_media_logo_urls.twitter }}"
-                      width="32" height="32" alt="{% filter force_escape %}{% blocktrans %}{{ platform_name }} on Twitter{% endblocktrans %}{% endfilter %}"/>
-                  </a>
-                </td>
-              {% endif %}
-              {% if social_media_urls.facebook %}
-                <td height="32" width="42">
-                  <a href="{{ social_media_urls.facebook|safe }}">
-                    <img src="{{ social_media_logo_urls.facebook }}"
-                      width="32" height="32" alt="{% filter force_escape %}{% blocktrans %}{{ platform_name }} on Facebook{% endblocktrans %}{% endfilter %}"/>
-                  </a>
-                </td>
-              {% endif %}
-              {% if social_media_urls.google_plus %}
-                <td height="32" width="42">
-                  <a href="{{ social_media_urls.google_plus|safe }}">
-                    <img src="{{ social_media_logo_urls.google_plus}}"
-                      width="32" height="32" alt="{% filter force_escape %}{% blocktrans %}{{ platform_name }} on Google Plus{% endblocktrans %}{% endfilter %}"/>
-                  </a>
-                </td>
-              {% endif %}
-              {% if social_media_urls.reddit %}
-                <td height="32" width="42">
-                  <a href="{{ social_media_urls.reddit|safe }}">
-                    <img src="{{ social_media_logo_urls.reddit}}"
-                      width="32" height="32" alt="{% filter force_escape %}{% blocktrans %}{{ platform_name }} on Reddit{% endblocktrans %}{% endfilter %}"/>
-                  </a>
-                </td>
-              {% endif %}
-            </tr>
-          </table>
-        </td>
-      </tr>
-      <tr>
-        <!-- APP BUTTONS -->
-        <td style="padding-bottom: 20px;">
-          {% if mobile_store_urls.apple %}
-            <a href="{{ mobile_store_urls.apple|safe }}" style="text-decoration: none">
-              <img src="{{ mobile_store_logo_urls.apple}}"
-                alt="{% trans "Download the iOS app on the Apple Store" as tmsg %}{{ tmsg | force_escape }}"
-                width="136" height="50" style="margin-{{ LANGUAGE_BIDI|yesno:"left,right" }}: 10px"/>
-            </a>
-          {% endif %}
-          {% if mobile_store_urls.google %}
-            <a href="{{ mobile_store_urls.google|safe }}" style="text-decoration: none">
-              <img src="{{ mobile_store_logo_urls.google}}"
-                alt="{% trans "Download the Android app on the Google Play Store" as tmsg %}{{ tmsg | force_escape }}"
-                width="136" height="50"/>
-            </a>
-          {% endif %}
-        </td>
-      </tr>
-      <tr>
-        <!-- Actions -->
-        <td style="padding-bottom: 20px; background-color: #f5f5f5;">
-          {% get_action_links channel omit_unsubscribe_link=omit_unsubscribe_link as action_links %}
-          {% for action_link_url, action_link_text in action_links %}
-            <p>
-              <a href="{{ action_link_url }}" style="color: #005686">
-                <font color="#005686"><b>{{ action_link_text }}</b></font>
-              </a>
-            </p>
-          {% endfor %}
-        </td>
-      </tr>
-      <tr>
-        <!-- COPYRIGHT -->
-        <td>
-          &copy; {% now "Y" %} {{ platform_name }}, {% trans "All rights reserved" as tmsg %}{{ tmsg | force_escape }}.<br/>
-          <br/>
-          {% trans "Our mailing address is:" as tmsg %}{{ tmsg | force_escape }}<br/>
-          {{ contact_mailing_address }}
-        </td>
-      </tr>
-      {% if unsubscribe_url %}
-        <tr>
-          <td>
-            <a href="{% with_link_tracking unsubscribe_url %}">{% trans "Unsubscribe from these emails." as tmsg %}{{ tmsg | force_escape }}</a>
-          </td>
-        </tr>
-      {% endif %}
-    </table>
-  </td>
+  
 </tr>
 </table>
 

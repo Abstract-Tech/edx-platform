@@ -2474,6 +2474,9 @@ MOBILE_STORE_LOGO_URLS = {
     'apple': 'http://email-media.s3.amazonaws.com/edX/2021/store_apple_229x78.jpg',
 }
 
+# Email logo URL - can be overridden in tutor settings
+LOGO_URL_PNG_FOR_EMAIL = None
+
 
 # The display dictionary defines the title
 # and icon class for each social media link.
@@ -3677,3 +3680,7 @@ SSL_AUTH_EMAIL_DOMAIN = "MIT.EDU"
 SSL_AUTH_DN_FORMAT_STRING = (
     "/C=US/ST=Massachusetts/O=Massachusetts Institute of Technology/OU=Client CA v1/CN={0}/emailAddress={1}"
 )
+
+# Configure email logo URL using LMS_BASE_URL
+# This will be set dynamically in development/production settings
+# LOGO_URL_PNG_FOR_EMAIL is configured via tutor environment patches
