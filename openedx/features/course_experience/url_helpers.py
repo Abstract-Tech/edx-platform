@@ -13,7 +13,6 @@ from django.http.request import QueryDict
 from opaque_keys.edx.keys import CourseKey, UsageKey
 from urllib.parse import urlparse
 
-from lms.djangoapps.courseware.toggles import courseware_mfe_is_active
 from lms.djangoapps.mfe_config_api.utils import get_mfe_config_for_site
 from xmodule.modulestore import ModuleStoreEnum  # lint-amnesty, pylint: disable=wrong-import-order
 from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
