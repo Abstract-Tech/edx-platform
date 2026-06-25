@@ -20,7 +20,9 @@ from lms.djangoapps.certificates.models import (
     CertificateHtmlViewConfiguration,
     CertificateTemplate,
     CertificateTemplateAsset,
-    GeneratedCertificate
+    GeneratedCertificate,
+    ModifiedCertificateTemplateCommandConfiguration,
+    PurgeReferencestoPDFCertificatesCommandConfiguration,
 )
 
 
@@ -92,8 +94,18 @@ class CertificateGenerationCourseSettingAdmin(admin.ModelAdmin):
     show_full_result_count = False
 
 
+@admin.register(ModifiedCertificateTemplateCommandConfiguration)
+class ModifiedCertificateTemplateCommandConfigurationAdmin(ConfigurationModelAdmin):
+    pass
+
+
 @admin.register(CertificateGenerationCommandConfiguration)
 class CertificateGenerationCommandConfigurationAdmin(ConfigurationModelAdmin):
+    pass
+
+
+@admin.register(PurgeReferencestoPDFCertificatesCommandConfiguration)
+class PurgeReferencestoPDFCertificatesCommandConfigurationAdmin(ConfigurationModelAdmin):
     pass
 
 
