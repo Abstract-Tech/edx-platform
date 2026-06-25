@@ -51,6 +51,7 @@ from lms.djangoapps.courseware.masquerade import get_masquerade_role
 from lms.djangoapps.discussion.django_comment_client.utils import has_forum_access
 from lms.djangoapps.grades.api import is_writable_gradebook_enabled
 from lms.djangoapps.instructor.constants import INSTRUCTOR_DASHBOARD_PLUGIN_VIEW_NAME
+from lms.djangoapps.mfe_config_api.utils import get_mfe_config_for_site
 from openedx.core.djangoapps.course_groups.cohorts import DEFAULT_COHORT_NAME, get_course_cohorts, is_course_cohorted
 from openedx.core.djangoapps.discussions.config.waffle_utils import legacy_discussion_experience_enabled
 from openedx.core.djangoapps.discussions.utils import available_division_schemes
@@ -184,7 +185,7 @@ def instructor_dashboard_2(request, course_id):  # lint-amnesty, pylint: disable
         is_bulk_email_disabled_for_course(course_key) and
         (access['staff'] or access['instructor'])
     ):
-        sections.append(_section_send_email(course, access))
+        sections.append(_section_send_email(request, course, access))
 
     # Gate access to Special Exam tab depending if either timed exams or proctored exams
     # are enabled in the course
@@ -604,8 +605,12 @@ def _section_student_admin(course, access):
         ),
         'spoc_gradebook_url': reverse('spoc_gradebook', kwargs={'course_id': str(course_key)}),
     }
-    if is_writable_gradebook_enabled(course_key) and settings.WRITABLE_GRADEBOOK_URL:
-        section_data['writable_gradebook_url'] = f'{settings.WRITABLE_GRADEBOOK_URL}/{str(course_key)}'
+    gradebook_base_url = configuration_helpers.get_value(
+        'GRADEBOOK_MFE_BASE_URL',
+        settings.WRITABLE_GRADEBOOK_URL,
+    )
+    if is_writable_gradebook_enabled(course_key) and gradebook_base_url:
+        section_data['writable_gradebook_url'] = f'{gradebook_base_url.rstrip("/")}/{str(course_key)}'
     return section_data
 
 
@@ -685,7 +690,7 @@ def null_applicable_aside_types(block):  # pylint: disable=unused-argument
     return []
 
 
-def _section_send_email(course, access):
+def _section_send_email(request, course, access):
     """ Provide data for the corresponding bulk email section """
     course_key = course.id
 
@@ -732,9 +737,16 @@ def _section_send_email(course, access):
         ),
     }
     if settings.FEATURES.get("ENABLE_NEW_BULK_EMAIL_EXPERIENCE", False) is not False:
+        # Get communications MFE config from site configuration
+        mfe_config = get_mfe_config_for_site(request=request, mfe="communications")
+        base_url = (
+            mfe_config.get("COMMUNICATIONS_MFE_BASE_URL")
+            or mfe_config.get("COMMUNICATIONS_MICROFRONTEND_URL")
+            or settings.COMMUNICATIONS_MICROFRONTEND_URL
+        )
         section_data[
             "communications_mfe_url"
-        ] = f"{settings.COMMUNICATIONS_MICROFRONTEND_URL}/courses/{str(course_key)}/bulk_email"
+        ] = f"{base_url}/courses/{str(course_key)}/bulk_email"
     return section_data
 
 
@@ -761,6 +773,17 @@ def _section_analytics(course, access):
 def _section_open_response_assessment(request, course, openassessment_blocks, access):
     """Provide data for the corresponding dashboard section """
     course_key = course.id
+
+    mfe_config = get_mfe_config_for_site(request=request, mfe="ora-grading")
+    ora_grading_base_url = (
+        mfe_config.get("ORA_GRADING_MFE_BASE_URL")
+        or mfe_config.get("ORA_GRADING_MICROFRONTEND_URL")
+        or settings.ORA_GRADING_MICROFRONTEND_URL
+    )
+    if ora_grading_base_url:
+        # openassessment (edx-ora2) reads ORA_GRADING_MICROFRONTEND_URL directly from settings
+        # while building the staff grader link, so set it here for this request.
+        setattr(settings, 'ORA_GRADING_MICROFRONTEND_URL', ora_grading_base_url)
 
     ora_items = []
     parents = {}
@@ -796,7 +819,8 @@ def _section_open_response_assessment(request, course, openassessment_blocks, ac
     section_data = {
         'fragment': block.render('ora_blocks_listing_view', context={
             'ora_items': ora_items,
-            'ora_item_view_enabled': settings.FEATURES.get('ENABLE_XBLOCK_VIEW_ENDPOINT', False)
+            'ora_item_view_enabled': settings.FEATURES.get('ENABLE_XBLOCK_VIEW_ENDPOINT', False),
+            'ora_grading_mfe_base_url': ora_grading_base_url,
         }),
         'section_key': 'open_response_assessment',
         'section_display_name': _('Open Responses'),

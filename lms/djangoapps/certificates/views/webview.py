@@ -5,16 +5,21 @@ Certificate HTML webview.
 
 import logging
 import urllib
+import base64
 from datetime import datetime
 from uuid import uuid4
+from io import BytesIO
 
 import pytz
+import qrcode
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.template import RequestContext
 from django.utils import translation
 from django.utils.encoding import smart_str
+from django.urls import reverse
+
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
 from openedx_filters.learning.filters import CertificateRenderStarted
@@ -47,6 +52,7 @@ from lms.djangoapps.certificates.utils import (
     get_certificate_url,
     get_preferred_certificate_name
 )
+from lms.djangoapps.grades.course_grade_factory import CourseGradeFactory
 from openedx.core.djangoapps.catalog.api import get_course_run_details
 from openedx.core.djangoapps.content.course_overviews.api import get_course_overview_or_none
 from openedx.core.djangoapps.lang_pref.api import get_closest_released_language
@@ -60,6 +66,29 @@ _ = translation.gettext
 
 
 INVALID_CERTIFICATE_TEMPLATE_PATH = 'certificates/invalid.html'
+
+
+def generate_qr_code_base64(data):
+    """
+    Generates a QR code (PNG) for the given 'data', then returns a
+    Base64-encoded string suitable for embedding in an <img> tag.
+    """
+    qr = qrcode.QRCode(
+        version=1,
+        box_size=5,
+        border=2,
+        error_correction=qrcode.constants.ERROR_CORRECT_M
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+
+    img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+    return f"data:image/png;base64,{img_str}"
 
 
 def get_certificate_description(mode, certificate_type, platform_name, course_key):
@@ -111,6 +140,17 @@ def _update_certificate_context(context, course, course_overview, user_certifica
         uuid=user_certificate.verify_uuid,
         suffix=context.get('certificate_verify_url_suffix')
     )
+
+    base_url = configuration_helpers.get_value("LMS_BASE_URL", settings.LMS_BASE)
+    certificate_url = "{prefix}{uuid}{suffix}".format(
+        prefix=f"{base_url}/certificates/",
+        uuid=user_certificate.verify_uuid,
+        suffix=context.get("certificate_verify_url_suffix") or "",
+    )
+
+    context['certificate_verify_url'] = certificate_url
+    # Generate the QR code and store in context
+    context['qr_code_data'] = generate_qr_code_base64(certificate_url)
 
     # We prefer a CourseOverview for this function because it validates and corrects certificate_available_date
     # and certificates_display_behavior values. However, not all certificates are guaranteed to have a CourseOverview
@@ -495,6 +535,18 @@ def render_html_view(request, course_id, certificate=None):  # pylint: disable=t
 
     course_overview = get_course_overview_or_none(course_key)
 
+    if course_overview:
+    # This ensures the read method uses CourseOverview (which has .id)
+        course_grade_object = CourseGradeFactory().read(user, course_overview, create_if_needed=True)
+    else:
+        # If no overview, you can’t compute a persistent grade
+        course_grade_object = None
+
+    if course_grade_object and course_grade_object.percent is not None:
+        user_grade = round(course_grade_object.percent * 100, 2)
+    else:
+        user_grade = 0.0
+
     # Kick the user back to the "Invalid" screen if the feature is disabled for the course
     if not course.cert_html_view_enabled:
         log.info(
@@ -559,6 +611,7 @@ def render_html_view(request, course_id, certificate=None):  # pylint: disable=t
         _update_context_with_basic_info(context, course_id, platform_name, configuration)
 
         context['certificate_data'] = active_configuration
+        context['cert_name_long'] = course_overview.cert_name_long
 
         # Append/Override the existing view context values with any mode-specific ConfigurationModel values
         context.update(configuration.get(user_certificate.mode, {}))
@@ -580,6 +633,7 @@ def render_html_view(request, course_id, certificate=None):  # pylint: disable=t
 
         # Append/Override the existing view context values with certificate specific values
         _update_certificate_context(context, course, course_overview, user_certificate, platform_name)
+        context['course_grade'] = user_grade
 
         # Add certificate header/footer data to current context
         context.update(get_certificate_header_context(is_secure=request.is_secure()))

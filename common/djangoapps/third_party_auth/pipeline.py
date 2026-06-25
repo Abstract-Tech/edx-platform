@@ -62,6 +62,7 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 from collections import OrderedDict
 from logging import getLogger
 from smtplib import SMTPException
@@ -117,6 +118,8 @@ from . import provider
 # (if not provided, defaults to `_SOCIAL_AUTH_LOGIN_REDIRECT_URL`)
 AUTH_ENTRY_KEY = 'auth_entry'
 AUTH_REDIRECT_KEY = 'next'
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 # The following are various possible values for the AUTH_ENTRY_KEY.
@@ -741,6 +744,100 @@ def login_analytics(strategy, auth_entry, current_partial=None, *args, **kwargs)
             **additional_params
         })
 
+def set_user_details_from_azure_saml(strategy, backend, uid, response, details, user=None, *args, **kwargs):
+    """
+    Extract user information from Azure AD SAML response and map it
+    to Open edX 'details' fields.
+    """
+    backend_name = getattr(backend, 'name', backend.__class__.__name__)
+    logger.info("[AZURE SSO] Pipeline step invoked. Backend=%s UID=%s", backend_name, uid)
+    attrs = (response or {}).get("attributes", {}) or {}
+    if not attrs:
+        logger.info("[AZURE SSO] No attributes present in SAML response. Backend=%s", backend_name)
+        return {}
+
+    azure_attribute_keys = {
+        "http://schemas.microsoft.com/identity/claims/emailaddress",
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname",
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname",
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
+        "http://schemas.microsoft.com/identity/claims/username",
+    }
+    if not any(attrs.get(key) for key in azure_attribute_keys):
+        logger.info(
+            "[AZURE SSO] Expected Azure attribute keys missing. Backend=%s AvailableKeys=%s",
+            backend_name,
+            list(attrs.keys()),
+        )
+        return {}
+
+    logger.info("[AZURE SSO] Received SAML response attributes: %s", list(attrs.keys()))
+
+    def _first_string(values):
+        """Return the first non-empty string from a SAML attribute value."""
+        if isinstance(values, (list, tuple, set)):
+            for item in values:
+                if isinstance(item, str) and item.strip():
+                    return item.strip()
+        if isinstance(values, str) and values.strip():
+            return values.strip()
+        return None
+
+    email = _first_string(attrs.get("http://schemas.microsoft.com/identity/claims/emailaddress"))
+    first_name = _first_string(attrs.get("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname"))
+    last_name = _first_string(attrs.get("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname"))
+    full_name = _first_string(attrs.get("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"))
+    username_hint = _first_string(attrs.get("http://schemas.microsoft.com/identity/claims/username"))
+
+    logger.info(
+        "[AZURE SSO] Extracted attributes → email=%s, first_name=%s, last_name=%s, full_name=%s, username_hint=%s",
+        email,
+        first_name,
+        last_name,
+        full_name,
+        username_hint,
+    )
+
+    updates = {}
+
+    if first_name:
+        updates["first_name"] = first_name
+    if last_name:
+        updates["last_name"] = last_name
+
+    derived_fullname = full_name or " ".join(filter(None, [first_name, last_name]))
+    if not derived_fullname and email:
+        derived_fullname = email.split("@")[0]
+    if derived_fullname:
+        updates["fullname"] = derived_fullname
+
+    if email:
+        updates["email"] = email
+    else:
+        logger.warning("[AZURE SSO] No email found in SAML response!")
+
+    username = None
+    if username_hint:
+        username = username_hint.lower()
+        logger.info("[AZURE SSO] Using username from Azure: %s", username)
+    elif email:
+        username = email.split("@")[0].lower()
+        logger.info("[AZURE SSO] Username derived from email prefix: %s", username)
+    elif derived_fullname:
+        username = derived_fullname.replace(" ", "").lower()
+        logger.info("[AZURE SSO] Username derived from fullname: %s", username)
+
+    if username:
+        updates["username"] = username
+
+    if updates:
+        details.update(updates)
+        logger.info("[AZURE SSO] Final parsed user details: %s", updates)
+    else:
+        logger.info("[AZURE SSO] No detail updates generated despite Azure attribute presence.")
+
+    return {"details": details}
+
 
 @partial.partial
 def associate_by_email_if_login_api(auth_entry, backend, details, user, current_partial=None, *args, **kwargs):  # lint-amnesty, pylint: disable=keyword-arg-before-vararg
@@ -895,6 +992,11 @@ def user_details_force_sync(auth_entry, strategy, details, user=None, *args, **k
         for provider_field, (model, field) in field_mapping.items():
             provider_value = details.get(provider_field)
             current_value = getattr(model, field)
+            if provider_field == 'fullname':
+                current_name = (current_value or '').strip()
+                username = (user.username or '').strip()
+                if current_name and not EMAIL_RE.match(current_name) and current_name != username:
+                    continue
             if provider_value is not None and current_value != provider_value:
                 if field in integrity_conflict_fields and User.objects.filter(**{field: provider_value}).exists():
                     logger.warning('[THIRD_PARTY_AUTH] Profile data synchronization conflict. '
@@ -982,6 +1084,14 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
     if 'username' not in backend.setting('USER_FIELDS', USER_FIELDS):
         return
     storage = strategy.storage
+    backend_name = getattr(backend, 'name', backend.__class__.__name__)
+
+    logger.info(
+        '[THIRD_PARTY_AUTH] get_username start. Backend=%s user_present=%s details_keys=%s',
+        backend_name,
+        bool(user),
+        sorted(details.keys()),
+    )
 
     if not user:
         email_as_username = strategy.setting('USERNAME_IS_FULL_EMAIL', False)
@@ -1009,18 +1119,203 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
         else:
             slug_func = lambda val: val
 
-        if is_auto_generated_username_enabled() and details.get('username') is None:
-            username = get_auto_generated_username(details)
-        else:
-            if email_as_username and details.get('email'):
-                username = details['email']
-            elif details.get('username'):
-                username = details['username']
+        email = (details.get('email') or '').strip()
+        provider_username = (details.get('username') or '').strip()
+
+        def _first_string(value):
+            """
+            Return the first non-empty string contained in `value`.
+            Values coming from SAML attributes are usually lists, but we defensively
+            handle single values and unexpected data structures as well.
+            """
+            if isinstance(value, (list, tuple, set)):
+                for candidate in value:
+                    if isinstance(candidate, str) and candidate.strip():
+                        return candidate.strip()
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+            return ''
+
+        if not provider_username:
+            logger.info('[THIRD_PARTY_AUTH] Provider did not supply username before SAML fallback. Backend=%s', backend_name)
+            is_saml, current_provider = is_saml_provider(backend_name, kwargs)
+            if is_saml:
+                response_payload = kwargs.get('response') or {}
+                attributes = response_payload.get('attributes') or {}
+                logger.info(
+                    '[THIRD_PARTY_AUTH] Attempting SAML attribute username extraction. Backend=%s AttributeKeys=%s',
+                    backend_name,
+                    list(attributes.keys()) if isinstance(attributes, dict) else type(attributes),
+                )
+                attribute_keys = []
+
+                if current_provider and current_provider.attr_username:
+                    attribute_keys.append(current_provider.attr_username)
+
+                # Fallback keys cover the most common username-related claims we see from IdPs.
+                attribute_keys.extend([
+                    'username',
+                    'User.username',
+                    'urn:oid:0.9.2342.19200300.100.1.1',  # uid
+                    'urn:oid:1.3.6.1.4.1.5923.1.1.1.6',   # eduPersonPrincipalName
+                    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
+                    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn',
+                ])
+
+                seen_keys = set()
+                for key in attribute_keys:
+                    if not key or key in seen_keys or not isinstance(attributes, dict):
+                        continue
+                    seen_keys.add(key)
+                    provider_username = _first_string(attributes.get(key))
+                    if provider_username:
+                        logger.info(
+                            '[THIRD_PARTY_AUTH] Username derived from SAML attribute. Backend=%s Attribute=%s Value=%s',
+                            backend_name,
+                            key,
+                            provider_username,
+                        )
+                        break
+
+                if not provider_username:
+                    logger.info('[THIRD_PARTY_AUTH] SAML attribute search did not yield username. Backend=%s', backend_name)
+                    provider_username = _first_string(response_payload.get('name_id'))
+                    if provider_username:
+                        logger.info(
+                            '[THIRD_PARTY_AUTH] Username derived from SAML NameID. Backend=%s NameID=%s',
+                            backend_name,
+                            provider_username,
+                        )
             else:
-                username = uuid4().hex
+                logger.info('[THIRD_PARTY_AUTH] Backend is not SAML; skipping SAML username fallback. Backend=%s', backend_name)
+
+        logger.info(
+            '[THIRD_PARTY_AUTH] Username source data. Backend=%s email=%s provider_username=%s '
+            'auto_generated_toggle=%s email_as_username_setting=%s',
+            backend_name,
+            email,
+            provider_username,
+            is_auto_generated_username_enabled(),
+            email_as_username,
+        )
+
+        def _first_string(value):
+            """
+            Return the first non-empty string contained in `value`.
+            Values coming from SAML attributes are usually lists, but we defensively
+            handle single values and unexpected data structures as well.
+            """
+            if isinstance(value, (list, tuple, set)):
+                for candidate in value:
+                    if isinstance(candidate, str) and candidate.strip():
+                        return candidate.strip()
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+            return ''
+
+        if not provider_username:
+            is_saml, current_provider = is_saml_provider(backend_name, kwargs)
+            if is_saml:
+                response_payload = kwargs.get('response') or {}
+                attributes = response_payload.get('attributes') or {}
+                attribute_keys = []
+
+                if current_provider and current_provider.attr_username:
+                    attribute_keys.append(current_provider.attr_username)
+
+                # Fallback keys cover the most common username-related claims we see from IdPs.
+                attribute_keys.extend([
+                    'username',
+                    'User.username',
+                    'urn:oid:0.9.2342.19200300.100.1.1',  # uid
+                    'urn:oid:1.3.6.1.4.1.5923.1.1.1.6',   # eduPersonPrincipalName
+                    'http://schemas.microsoft.com/identity/claims/username',
+                    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
+                    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn',
+                ])
+
+                seen_keys = set()
+                for key in attribute_keys:
+                    if not key or key in seen_keys or not isinstance(attributes, dict):
+                        continue
+                    seen_keys.add(key)
+                    provider_username = _first_string(attributes.get(key))
+                    if provider_username:
+                        logger.info(
+                            '[THIRD_PARTY_AUTH] Username derived from SAML attribute. Backend=%s Attribute=%s Value=%s',
+                            backend_name,
+                            key,
+                            provider_username,
+                        )
+                        break
+
+                if not provider_username:
+                    provider_username = _first_string(response_payload.get('name_id'))
+                    if provider_username:
+                        logger.info(
+                            '[THIRD_PARTY_AUTH] Username derived from SAML NameID. Backend=%s NameID=%s',
+                            backend_name,
+                            provider_username,
+                        )
+
+        if provider_username:
+            username = provider_username
+            logger.info(
+                '[THIRD_PARTY_AUTH] Username supplied by provider. Backend=%s ProviderUsername=%s',
+                backend_name,
+                provider_username,
+            )
+        elif email:
+            username = email.split('@')[0].lower()
+            logger.info(
+                '[THIRD_PARTY_AUTH] Username chosen from email prefix. Backend=%s Email=%s Username=%s',
+                backend_name,
+                email,
+                username,
+            )
+        elif is_auto_generated_username_enabled():
+            # Try custom fallback before raising exception
+            email = details.get("email")
+            if email:
+                username = email.split("@")[0].lower()
+                logger.info(
+                    '[THIRD_PARTY_AUTH] Custom logic (auto-generation on): using email prefix. Backend=%s Email=%s Username=%s',
+                    backend_name,
+                    email,
+                    username,
+                )
+            else:
+                username = get_auto_generated_username(details)
+                logger.info(
+                    '[THIRD_PARTY_AUTH] Fallback to get_auto_generated_username(). Backend=%s Username=%s',
+                    backend_name,
+                    username,
+                )
+        elif email_as_username and email:
+            username = email
+            logger.info(
+                '[THIRD_PARTY_AUTH] Username falls back to full email. Backend=%s Email=%s',
+                backend_name,
+                email,
+            )
+        else:
+            username = uuid4().hex
+            logger.info(
+                '[THIRD_PARTY_AUTH] Username auto-generated as hex fallback. Backend=%s Username=%s',
+                backend_name,
+                username,
+            )
 
         input_username = username
         final_username = slug_func(clean_func(username[:max_length]))
+
+        logger.info(
+            '[THIRD_PARTY_AUTH] Username post clean/slug. Backend=%s raw_input=%s cleaned_username=%s max_length=%s',
+            backend_name,
+            input_username,
+            final_username,
+            max_length,
+        )
 
         # Generate a unique username for current user using username
         # as base but adding a unique hash at the end. Original
@@ -1038,17 +1333,23 @@ def get_username(strategy, details, backend, user=None, *args, **kwargs):  # lin
             username = short_username + '-' + username_suffix_generator(this_uuid_length)
             final_username = slug_func(clean_func(username[:max_length]))
             logger.info(
-                '[THIRD_PARTY_AUTH] New username candidnate generated: '
+                '[THIRD_PARTY_AUTH] New username candidate generated: '
                 f'input_username={input_username}, '
                 f'suffix_length={this_uuid_length}, '
                 f'final_username={final_username}'
             )
     else:
         final_username = storage.user.get_username(user)
+        logger.info(
+            '[THIRD_PARTY_AUTH] Existing user detected. Backend=%s username=%s',
+            backend_name,
+            final_username,
+        )
     logger.info(
         '[THIRD_PARTY_AUTH] get_username complete: '
         f'details={details}, '
-        f'final_username={final_username}'
+        f'final_username={final_username} '
+        f'backend={backend_name}'
     )
     return {'username': final_username}
 

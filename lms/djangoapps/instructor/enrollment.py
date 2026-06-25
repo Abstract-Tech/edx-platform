@@ -167,10 +167,30 @@ def enroll_email(
         # "honor" course_mode. Given the change to use "audit" as the default
         # course_mode in Open edX, we need to be backwards compatible with
         # how White Labels approach enrollment modes.
+
+        # Get the default course mode for this course
+        course_modes = CourseMode.modes_for_course(course_id, include_expired=False)
+        default_mode = CourseMode.DEFAULT_MODE_SLUG
+        if course_modes:
+            default_mode = course_modes[0].slug
+
+        # For white labels, use honor mode
         if CourseMode.is_white_label(course_id):
             course_mode = CourseMode.HONOR
+        # For LMS org courses, force professional mode
+        elif course_id.org == 'lms':
+            # Ensure professional mode exists
+            CourseMode.objects.get_or_create(
+                course_id=course_id,
+                mode_slug=CourseMode.PROFESSIONAL,
+                mode_display_name='Professional',
+                min_price=900,
+                currency='eur'
+            )
+            course_mode = CourseMode.PROFESSIONAL
+        # Otherwise use the default mode for the course
         else:
-            course_mode = None
+            course_mode = default_mode
 
         if previous_state.enrollment:
             course_mode = previous_state.mode

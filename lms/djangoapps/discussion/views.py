@@ -5,10 +5,14 @@ Views handling read (GET) requests for the Discussion tab and inline discussions
 import logging
 from functools import wraps
 from urllib.parse import urljoin
+from collections import OrderedDict
+from math import ceil
 
+from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import Http404, HttpResponseForbidden, HttpResponseServerError
 from django.shortcuts import redirect, render
@@ -100,24 +104,17 @@ def make_course_settings(course, user, include_category_map=True):
 
     return course_setting
 
+CommentThread = apps.get_model("forum", "CommentThread")
+Comment = apps.get_model("forum", "Comment")
 
 def get_threads(request, course, user_info, discussion_id=None, per_page=THREADS_PER_PAGE):
     """
-    This may raise an appropriate subclass of cc.utils.CommentClientError
-    if something goes wrong, or ValueError if the group_id is invalid.
-
-    Arguments:
-        request (WSGIRequest): The user request.
-        course (CourseBlockWithMixins): The course object.
-        user_info (dict): The comment client User object as a dict.
-        discussion_id (unicode): Optional discussion id/commentable id for context.
-        per_page (int): Optional number of threads per page.
-
-    Returns:
-        (tuple of list, dict): A tuple of the list of threads and a dict of the
-            query parameters used for the search.
-
+    MySQL-backed get_threads implementation.
+    Fetches threads from CommentThread (instead of cc.Thread.search).
+    Uses Django's Paginator for pagination.
     """
+
+    # Default query params
     default_query_params = {
         'page': 1,
         'per_page': per_page,
@@ -129,20 +126,16 @@ def get_threads(request, course, user_info, discussion_id=None, per_page=THREADS
         'group_id': get_group_id_for_comments_service(request, course.id, discussion_id),  # may raise ValueError
     }
 
-    # If provided with a discussion id, filter by discussion id in the
-    # comments_service.
     if discussion_id is not None:
         default_query_params['commentable_id'] = discussion_id
-        # Use the discussion id/commentable id to determine the context we are going to pass through to the backend.
         if team_api.get_team_by_discussion(discussion_id) is not None:
             default_query_params['context'] = ThreadContext.STANDALONE
-
         _check_team_discussion_access(request, course, discussion_id)
 
+    # Sort key handling
     if not request.GET.get('sort_key'):
         # If the user did not select a sort key, use their last used sort key
         default_query_params['sort_key'] = user_info.get('default_sort_key') or default_query_params['sort_key']
-
     elif request.GET.get('sort_key') != user_info.get('default_sort_key'):
         # If the user clicked a sort key, update their default sort key
         cc_user = cc.User.from_django_user(request.user)
@@ -170,28 +163,69 @@ def get_threads(request, course, user_info, discussion_id=None, per_page=THREADS
             )
         )
     )
-    paginated_results = cc.Thread.search(query_params)
-    threads = paginated_results.collection
 
-    # If not provided with a discussion id, filter threads by commentable ids
-    # which are accessible to the current user.
-    if discussion_id is None:
-        discussion_category_ids = set(get_discussion_categories_ids(course, request.user))
-        threads = [
-            thread for thread in threads
-            if thread.get('commentable_id') in discussion_category_ids
-        ]
+    # Build queryset from MySQL ORM
+    qs = CommentThread.objects.filter(course_id=str(course.id))
 
-    for thread in threads:
-        # patch for backward compatibility to comments service
-        if 'pinned' not in thread:
-            thread['pinned'] = False
+    if discussion_id:
+        qs = qs.filter(commentable_id=discussion_id)
 
-    query_params['page'] = paginated_results.page
-    query_params['num_pages'] = paginated_results.num_pages
-    query_params['corrected_text'] = paginated_results.corrected_text
+    if query_params.get("text"):
+        qs = qs.filter(title__icontains=query_params["text"]) | qs.filter(body__icontains=query_params["text"])
 
-    return threads, query_params
+    if query_params.get("sort_key") == "date":
+        qs = qs.order_by("-created_at")
+    else:
+        qs = qs.order_by("-updated_at")
+
+    # Use Django Paginator
+    paginator = Paginator(qs, per_page)
+    page = query_params.get("page", 1)
+    try:
+        threads_page = paginator.page(page)
+    except PageNotAnInteger:
+        threads_page = paginator.page(1)
+        page = 1
+    except EmptyPage:
+        threads_page = paginator.page(paginator.num_pages)
+        page = paginator.num_pages
+
+    # Map ORM objects → dicts (same format as before)
+    thread_dicts = []
+    for t in threads_page:
+        thread_dicts.append(OrderedDict([
+            ("id", str(t.id)),
+            ("title", t.title),
+            ("body", t.body),
+            ("course_id", t.course_id),
+            ("commentable_id", t.commentable_id),
+            ("username", t.author.username if t.author else None),
+            ("user_id", str(t.author_id) if t.author_id else None),
+            ("created_at", t.created_at.isoformat()),
+            ("updated_at", t.updated_at.isoformat()),
+            ("type", "thread"),
+            ("thread_type", "discussion"),
+            ("comments_count", t.comment_set.count()),
+            ("read", False),
+            ("unread_comments_count", 0),
+            ("endorsed", False),
+            ("pinned", False),
+            ("closed", False),
+            ("votes", OrderedDict([
+                ("count", 0),
+                ("up_count", 0),
+                ("down_count", 0),
+                ("point", 0),
+            ])),
+            ("context", "standalone" if discussion_id else "course"),
+        ]))
+
+    # Update query params
+    query_params["page"] = page
+    query_params["num_pages"] = paginator.num_pages
+    query_params["corrected_text"] = ""
+
+    return thread_dicts, query_params
 
 
 def use_bulk_ops(view_func):
@@ -390,9 +424,9 @@ def single_thread(request, course_key, discussion_id, thread_id):
             'annotated_content_info': annotated_content_info,
         })
     else:
-        redirect_url = redirect_thread_url_to_new_mfe(request, str(course.id), thread_id)
-        if redirect_url:
-            return redirect(redirect_url)
+        # redirect_url = redirect_thread_url_to_new_mfe(request, str(course.id), thread_id)
+        # if redirect_url:
+        #     return redirect(redirect_url)
 
         course_id = str(course.id)
         tab_view = CourseTabView()

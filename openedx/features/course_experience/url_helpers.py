@@ -13,6 +13,7 @@ from django.http.request import QueryDict
 from opaque_keys.edx.keys import CourseKey, UsageKey
 from urllib.parse import urlparse
 
+from lms.djangoapps.mfe_config_api.utils import get_mfe_config_for_site
 from xmodule.modulestore import ModuleStoreEnum  # lint-amnesty, pylint: disable=wrong-import-order
 from xmodule.modulestore.django import modulestore  # lint-amnesty, pylint: disable=wrong-import-order
 from xmodule.modulestore.search import path_to_location  # lint-amnesty, pylint: disable=wrong-import-order
@@ -87,6 +88,9 @@ def _get_new_courseware_url(
         params=request.GET if request and request.GET else None,
     )
 
+def get_learning_mfe_base_url(request=None, site=None) -> str:
+    mfe_config = get_mfe_config_for_site(request=request, site=site, mfe="learning")
+    return mfe_config.get("LEARNING_BASE_URL", settings.LEARNING_MICROFRONTEND_URL)
 
 def make_learning_mfe_courseware_url(
         course_key: CourseKey,
@@ -124,7 +128,8 @@ def make_learning_mfe_courseware_url(
     strings. They're only ever used to concatenate a URL string.
     `params` is an optional QueryDict object (e.g. request.GET)
     """
-    mfe_link = f'{settings.LEARNING_MICROFRONTEND_URL}/course/{course_key}'
+    mfe_link = f'{get_learning_mfe_base_url()}/course/{course_key}'
+
     get_params = params.copy() if params else None
 
     if preview:
@@ -134,7 +139,7 @@ def make_learning_mfe_courseware_url(
             get_params = None
 
         if (unit_key or sequence_key):
-            mfe_link = f'{settings.LEARNING_MICROFRONTEND_URL}/preview/course/{course_key}'
+            mfe_link = f'{get_learning_mfe_base_url()}/preview/course/{course_key}'
 
     if sequence_key:
         mfe_link += f'/{sequence_key}'
@@ -164,7 +169,7 @@ def get_learning_mfe_home_url(
     `url_fragment` is an optional string.
     `params` is an optional QueryDict object (e.g. request.GET)
     """
-    mfe_link = f'{settings.LEARNING_MICROFRONTEND_URL}/course/{course_key}'
+    mfe_link = f'{get_learning_mfe_base_url()}/course/{course_key}'
 
     if url_fragment:
         mfe_link += f'/{url_fragment}'
@@ -179,9 +184,9 @@ def is_request_from_learning_mfe(request: HttpRequest):
     """
     Returns whether the given request was made by the frontend-app-learning MFE.
     """
-    if not settings.LEARNING_MICROFRONTEND_URL:
+    if not get_learning_mfe_base_url():
         return False
 
-    url = urlparse(settings.LEARNING_MICROFRONTEND_URL)
+    url = urlparse(get_learning_mfe_base_url())
     mfe_url_base = f'{url.scheme}://{url.netloc}'
     return request.META.get('HTTP_REFERER', '').startswith(mfe_url_base)

@@ -1037,6 +1037,8 @@ pyyaml==6.0.3
     #   edx-i18n-tools
     #   jsondiff
     #   xblock
+qrcode[pil]==8.0
+    # via lms.djangoapps.certificates (UDS: QR code on certificate HTML view)
 random2==1.0.2
     # via -r requirements/edx/kernel.in
 recommender-xblock==3.1.0

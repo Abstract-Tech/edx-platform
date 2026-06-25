@@ -508,18 +508,7 @@ class GradebookView(GradeViewMixin, PaginatedAPIView):
         )
         user_entry['user_id'] = user.id
 
-        def is_masters_student():
-            # If this is a multiple-user lookup (didn't use the username param) we insert
-            # user.enrollment_mode in _get_enrolled_users. If it is a single-user lookup
-            # (did use username) then we'll need to look up the single user's enrollment mode
-            if hasattr(user, 'enrollment_mode'):
-                return user.enrollment_mode == CourseMode.MASTERS
-            else:
-                mode, _ = CourseEnrollment.enrollment_mode_for_user(user, str(course.id))
-                return mode == CourseMode.MASTERS
-
-        if is_masters_student():
-            user_entry['full_name'] = user.profile.name
+        user_entry['full_name'] = user.profile.name
 
         external_user_key = get_external_key_by_user_and_course(user, course.id)
         if external_user_key:
@@ -555,6 +544,8 @@ class GradebookView(GradeViewMixin, PaginatedAPIView):
                     course,
                     collected_block_structure=course_data.collected_structure
                 )
+                # Ensure grading policy changes are reflected in the response.
+                course_grade.update(visible_grades_only=False, has_staff_access=True)
             entry = self._gradebook_entry(grade_user, course, graded_subsections, course_grade)
             serializer = StudentGradebookEntrySerializer(entry)
             return Response(serializer.data)
@@ -664,6 +655,8 @@ class GradebookView(GradeViewMixin, PaginatedAPIView):
                     users, course_key=course_key, collected_block_structure=course_data.collected_structure
                 ):
                     if not exc:
+                        # Ensure grading policy changes are reflected in the response.
+                        course_grade.update(visible_grades_only=False, has_staff_access=True)
                         entry = self._gradebook_entry(user, course, graded_subsections, course_grade)
                         entries.append(entry)
 

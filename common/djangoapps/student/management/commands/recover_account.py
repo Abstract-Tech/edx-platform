@@ -26,6 +26,7 @@ from openedx.core.djangoapps.site_configuration import helpers as configuration_
 from openedx.core.djangoapps.user_api.preferences.api import get_user_preference
 from openedx.core.djangoapps.user_authn.message_types import PasswordReset
 from openedx.core.lib.celery.task_utils import emulate_http_request
+from openedx.core.djangoapps.user_authn.views.utils import get_authn_mfe_base_url
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 PASSWORD_RESET_INITIATED = 'edx.user.passwordreset.initiated'
@@ -115,7 +116,7 @@ class Command(BaseCommand):
         message_context = get_base_template_context(site)
         email = user.email
         if should_redirect_to_authn_microfrontend():
-            site_url = settings.AUTHN_MICROFRONTEND_URL
+            site_url = get_authn_mfe_base_url(site=site)
         else:
             site_url = configuration_helpers.get_value('SITE_NAME', settings.SITE_NAME)
         message_context.update({

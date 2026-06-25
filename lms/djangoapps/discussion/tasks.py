@@ -27,6 +27,7 @@ from xmodule.modulestore.django import modulestore
 
 import openedx.core.djangoapps.django_comment_common.comment_client as cc
 from common.djangoapps.track import segment
+from common.djangoapps.student.models import CourseEnrollment
 from lms.djangoapps.discussion.django_comment_client.utils import (
     permalink,
     get_users_with_moderator_roles,
@@ -36,6 +37,7 @@ from openedx.core.djangoapps.ace_common.message import BaseMessageType
 from openedx.core.djangoapps.ace_common.template_context import get_base_template_context
 from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
 from openedx.core.djangoapps.django_comment_common.models import DiscussionsIdMapping
+from openedx.core.djangoapps.notifications.models import CourseNotificationPreference
 from openedx.core.lib.celery.task_utils import emulate_http_request
 
 log = logging.getLogger(__name__)
@@ -85,41 +87,62 @@ class CommentNotification(BaseMessageType):
 @set_code_owner_attribute
 def send_ace_message(context):  # lint-amnesty, pylint: disable=missing-function-docstring
     context['course_id'] = CourseKey.from_string(context['course_id'])
+    is_subcomment = _is_subcomment(context)
 
-    if _should_send_message(context):
-        context['site'] = Site.objects.get(id=context['site_id'])
-        thread_author = User.objects.get(id=context['thread_author_id'])
-        comment_author = User.objects.get(id=context['comment_author_id'])
-        with emulate_http_request(site=context['site'], user=comment_author):
-            message_context = _build_message_context(context, notification_type='forum_response')
-            message = ResponseNotification().personalize(
-                Recipient(thread_author.id, thread_author.email),
-                _get_course_language(context['course_id']),
-                message_context
-            )
-            log.info('Sending forum comment notification with context %s', message_context)
-            if _is_first_comment(context['comment_id'], context['thread_id']):
-                limit_to_channels = None
-            else:
-                limit_to_channels = [ChannelType.PUSH]
-            ace.send(message, limit_to_channels=limit_to_channels)
-            _track_notification_sent(message, context)
+    enrolled_users_ids = CourseEnrollment.objects.filter(
+        course_id=context['course_id'],
+        is_active=True,
+    ).values_list("user_id", flat=True)
 
-    elif _should_send_subcomment_message(context):
-        context['site'] = Site.objects.get(id=context['site_id'])
-        comment_author = User.objects.get(id=context['comment_author_id'])
-        thread_author = User.objects.get(id=context['thread_author_id'])
+    for user_id in enrolled_users_ids:
+        context["thread_author_id"] = user_id
 
-        with emulate_http_request(site=context['site'], user=comment_author):
-            message_context = _build_message_context(context)
-            message = CommentNotification().personalize(
-                Recipient(thread_author.id, thread_author.email),
-                _get_course_language(context['course_id']),
-                message_context
-            )
-            log.info('Sending forum comment notification with context %s', message_context)
-            ace.send(message, limit_to_channels=[ChannelType.PUSH])
-            _track_notification_sent(message, context)
+        if _comment_author_is_thread_author(context):
+            continue
+
+        if not is_subcomment:
+            context['site'] = Site.objects.get(id=context['site_id'])
+            thread_author = User.objects.get(id=context['thread_author_id'])
+            if not _is_discussion_email_enabled_for_user(thread_author.id, context['course_id']):
+                continue
+            comment_author = User.objects.get(id=context['comment_author_id'])
+
+            with emulate_http_request(site=context['site'], user=comment_author):
+                message_context = _build_message_context(
+                    context, notification_type='forum_response'
+                )
+                message = ResponseNotification().personalize(
+                    Recipient(thread_author.id, thread_author.email),
+                    _get_course_language(context['course_id']),
+                    message_context
+                )
+                log.info('Sending forum comment notification with context %s', message_context)
+
+                if _is_first_comment(context['comment_id'], context['thread_id']):
+                    limit_to_channels = None
+                else:
+                    limit_to_channels = [ChannelType.PUSH]
+
+                ace.send(message, limit_to_channels=limit_to_channels)
+                _track_notification_sent(message, context)
+
+        else:
+            context['site'] = Site.objects.get(id=context['site_id'])
+            comment_author = User.objects.get(id=context['comment_author_id'])
+            thread_author = User.objects.get(id=context['thread_author_id'])
+            if not _is_discussion_email_enabled_for_user(thread_author.id, context['course_id']):
+                continue
+
+            with emulate_http_request(site=context['site'], user=comment_author):
+                message_context = _build_message_context(context)
+                message = CommentNotification().personalize(
+                    Recipient(thread_author.id, thread_author.email),
+                    _get_course_language(context['course_id']),
+                    message_context
+                )
+                log.info('Sending forum comment notification with context %s', message_context)
+                ace.send(message, limit_to_channels=[ChannelType.PUSH])
+                _track_notification_sent(message, context)
 
 
 @shared_task(base=LoggedTask)
@@ -177,26 +200,29 @@ def _track_notification_sent(message, context):
         )
 
 
+def _is_discussion_email_enabled_for_user(user_id, course_id):
+    """
+    Respect per-course per-user discussion notification preferences.
+    In this deployment, the learner UI toggles discussion core/web, so use that
+    switch to control legacy forum email sending.
+    """
+    preference = CourseNotificationPreference.get_user_course_preference(user_id, course_id)
+    discussion_config = preference.get_app_config('discussion')
+    if not discussion_config.get('enabled', False):
+        return False
+    return preference.get_core_config('discussion').get('web', False)
+
+
 def _should_send_message(context):
-    cc_thread_author = cc.User(id=context['thread_author_id'], course_id=context['course_id'])
-    return (
-        _is_user_subscribed_to_thread(cc_thread_author, context['thread_id']) and
-        _is_not_subcomment(context['comment_id']) and
-        not _comment_author_is_thread_author(context)
-    )
+    return not _is_subcomment(context) and not _comment_author_is_thread_author(context)
 
 
 def _should_send_subcomment_message(context):
-    cc_thread_author = cc.User(id=context['thread_author_id'], course_id=context['course_id'])
-    return (
-        _is_user_subscribed_to_thread(cc_thread_author, context['thread_id']) and
-        _is_subcomment(context['comment_id']) and
-        not _comment_author_is_thread_author(context)
-    )
+    return _is_subcomment(context) and not _comment_author_is_thread_author(context)
 
 
 def _comment_author_is_thread_author(context):
-    return context.get('comment_author_id', '') == context['thread_author_id']
+    return str(context.get('comment_author_id', '')) == str(context['thread_author_id'])
 
 
 def _is_content_still_reported(context):
@@ -205,13 +231,8 @@ def _is_content_still_reported(context):
     return len(cc.Thread.find(context['thread_id']).abuse_flaggers) > 0
 
 
-def _is_subcomment(comment_id):
-    comment = cc.Comment.find(id=comment_id).retrieve()
-    return getattr(comment, 'parent_id', None)
-
-
-def _is_not_subcomment(comment_id):
-    return not _is_subcomment(comment_id)
+def _is_subcomment(context):
+    return bool(context.get('comment_parent_id'))
 
 
 def _is_first_comment(comment_id, thread_id):  # lint-amnesty, pylint: disable=missing-function-docstring
@@ -229,19 +250,6 @@ def _is_first_comment(comment_id, thread_id):  # lint-amnesty, pylint: disable=m
         return first_comment.get('id') == comment_id
     else:
         return False
-
-
-def _is_user_subscribed_to_thread(cc_user, thread_id):  # lint-amnesty, pylint: disable=missing-function-docstring
-    paginated_result = cc_user.subscribed_threads()
-    thread_ids = {thread['id'] for thread in paginated_result.collection}
-
-    while paginated_result.page < paginated_result.num_pages:
-        next_page = paginated_result.page + 1
-        paginated_result = cc_user.subscribed_threads(query_params={'page': next_page})
-        thread_ids.update(thread['id'] for thread in paginated_result.collection)
-
-    return thread_id in thread_ids
-
 
 def _get_course_language(course_id):
     course_overview = CourseOverview.objects.get(id=course_id)

@@ -65,6 +65,7 @@ from openedx.core.lib.api.authentication import BearerAuthenticationAllowInactiv
 from openedx.features.course_experience.url_helpers import make_learning_mfe_courseware_url
 from openedx.features.discounts.applicability import FIRST_PURCHASE_DISCOUNT_OVERRIDE_FLAG
 from openedx.features.enterprise_support.utils import is_enterprise_learner
+from openedx.core.djangoapps.user_authn.views.utils import get_authn_mfe_base_url
 from common.djangoapps.student.email_helpers import generate_activation_email_context
 from common.djangoapps.student.helpers import DISABLE_UNENROLL_CERT_STATES, cert_info
 from common.djangoapps.student.message_types import AccountActivation, EmailChange, EmailChangeConfirmation, RecoveryEmailCreate  # lint-amnesty, pylint: disable=line-too-long
@@ -680,7 +681,7 @@ def activate_account(request, key):
         if redirect_url:
             params['next'] = redirect_url
         url_path = '/login?{}'.format(urllib.parse.urlencode(params))
-        return redirect(settings.AUTHN_MICROFRONTEND_URL + url_path)
+        return redirect(get_authn_mfe_base_url(request=request) + url_path)
 
     response = redirect(redirect_url) if redirect_url and is_enterprise_learner(request.user) else redirect('dashboard')
     if show_account_activation_popup:
