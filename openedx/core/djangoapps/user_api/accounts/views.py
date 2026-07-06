@@ -109,6 +109,9 @@ USER_PROFILE_PII = {
     "phone_number": None,
 }
 
+DEFAULT_ACCOUNT_SEARCH_LIMIT = 10
+ACCOUNT_SEARCH_LIMIT = 20
+
 
 def request_requires_username(function):
     """
@@ -409,13 +412,23 @@ class AccountViewSet(ViewSet):
             )
 
         query = request.query_params.get("query", "").strip()
-        if not query:
-            return Response([])
+        system_usernames = {
+            settings.JWT_AUTH.get("JWT_LOGIN_SERVICE_USERNAME"),
+            getattr(settings, "CREDENTIALS_SERVICE_USERNAME", None),
+            getattr(settings, "ECOMMERCE_SERVICE_WORKER_USERNAME", None),
+            getattr(settings, "ENTERPRISE_SERVICE_WORKER_USERNAME", None),
+            getattr(settings, "RETIREMENT_SERVICE_WORKER_USERNAME", None),
+        }
+        system_usernames.discard(None)
 
-        users = User.objects.filter(
-            Q(username__icontains=query) | Q(email__icontains=query),
-            is_active=True,
-        ).order_by("username")[:20]
+        users = User.objects.filter(is_active=True).exclude(
+            Q(username__iendswith="_service_user") | Q(username__in=system_usernames)
+        )
+        if query:
+            users = users.filter(Q(username__icontains=query) | Q(email__icontains=query))
+
+        limit = ACCOUNT_SEARCH_LIMIT if query else DEFAULT_ACCOUNT_SEARCH_LIMIT
+        users = users.order_by("username")[:limit]
         data = UserSearchEmailSerializer(users, many=True).data
         return Response(data)
 

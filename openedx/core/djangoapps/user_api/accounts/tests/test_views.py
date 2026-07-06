@@ -654,10 +654,43 @@ class TestAccountsAPI(FilteredQueryCountMixin, CacheIsolationTestCase, UserAPITe
         response = client.get(self.account_search_api_url, {'query': self.user.username})
         assert response.data == []
 
-    def test_search_active_accounts_blank_query(self):
+    def test_search_active_accounts_blank_query_returns_first_ten_users(self):
         client = self.login_client('staff_client', 'staff_user')
+        preload_users = [
+            UserFactory(username=f"000_preload_user_{index:02d}", password=TEST_PASSWORD)
+            for index in range(12)
+        ]
+
         response = client.get(self.account_search_api_url, {'query': ''})
-        assert response.data == []
+        assert len(response.data) == 10
+        assert response.data == [
+            {'email': user.email, 'id': user.id, 'username': user.username}
+            for user in preload_users[:10]
+        ]
+
+    @override_settings(
+        CREDENTIALS_SERVICE_USERNAME="credentials_service_user",
+        ECOMMERCE_SERVICE_WORKER_USERNAME="ecommerce_worker",
+        ENTERPRISE_SERVICE_WORKER_USERNAME="enterprise_worker",
+        RETIREMENT_SERVICE_WORKER_USERNAME="RETIREMENT_SERVICE_USER",
+        JWT_AUTH={"JWT_LOGIN_SERVICE_USERNAME": "login_service_user"},
+    )
+    def test_search_active_accounts_excludes_system_users(self):
+        client = self.login_client('staff_client', 'staff_user')
+        system_users = [
+            UserFactory(username="login_service_user", password=TEST_PASSWORD),
+            UserFactory(username="credentials_service_user", password=TEST_PASSWORD),
+            UserFactory(username="ecommerce_worker", password=TEST_PASSWORD),
+            UserFactory(username="enterprise_worker", password=TEST_PASSWORD),
+            UserFactory(username="RETIREMENT_SERVICE_USER", password=TEST_PASSWORD),
+        ]
+        normal_user = UserFactory(username="service_learner", password=TEST_PASSWORD)
+
+        response = client.get(self.account_search_api_url, {'query': 'service'})
+        returned_usernames = {user["username"] for user in response.data}
+
+        assert normal_user.username in returned_usernames
+        assert not returned_usernames.intersection({user.username for user in system_users})
 
     def test_search_active_accounts_with_non_staff_user(self):
         client = self.login_client('client', 'user')
