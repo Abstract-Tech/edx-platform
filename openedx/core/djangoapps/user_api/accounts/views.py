@@ -17,6 +17,7 @@ from django.contrib.auth import authenticate, get_user_model, logout
 from django.contrib.sites.models import Site
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Q
 from django.utils.translation import gettext as _
 from edx_ace import ace
 from edx_ace.recipient import Recipient
@@ -395,6 +396,26 @@ class AccountViewSet(ViewSet):
                 {"developer_message": error_message, "user_message": error_message}, status=status.HTTP_400_BAD_REQUEST
             )
         users = User.objects.filter(email__in=user_emails)
+        data = UserSearchEmailSerializer(users, many=True).data
+        return Response(data)
+
+    def search(self, request):
+        """
+        GET /api/user/v1/accounts/search?query={query}
+        """
+        if not request.user.is_staff:
+            return Response(
+                {"developer_message": "not_found", "user_message": "Not Found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        query = request.query_params.get("query", "").strip()
+        if not query:
+            return Response([])
+
+        users = User.objects.filter(
+            Q(username__icontains=query) | Q(email__icontains=query),
+            is_active=True,
+        ).order_by("username")[:20]
         data = UserSearchEmailSerializer(users, many=True).data
         return Response(data)
 

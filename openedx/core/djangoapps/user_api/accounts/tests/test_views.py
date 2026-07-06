@@ -366,6 +366,7 @@ class TestAccountsAPI(FilteredQueryCountMixin, CacheIsolationTestCase, UserAPITe
 
         self.url = reverse("accounts_api", kwargs={'username': self.user.username})
         self.search_api_url = reverse("accounts_search_emails_api")
+        self.account_search_api_url = reverse("accounts_search_api")
 
     def _set_user_age_to_10_years(self, user):
         """
@@ -635,6 +636,36 @@ class TestAccountsAPI(FilteredQueryCountMixin, CacheIsolationTestCase, UserAPITe
         assert response.data == {
             'developer_message': "'emails' field is required",
             'user_message': "'emails' field is required"
+        }
+
+    def test_search_active_accounts_by_username_or_email(self):
+        client = self.login_client('staff_client', 'staff_user')
+        response = client.get(self.account_search_api_url, {'query': self.user.username[:1]})
+        assert {'email': self.user.email, 'id': self.user.id, 'username': self.user.username} in response.data
+
+        response = client.get(self.account_search_api_url, {'query': self.user.email[:3]})
+        assert {'email': self.user.email, 'id': self.user.id, 'username': self.user.username} in response.data
+
+    def test_search_active_accounts_excludes_inactive_users(self):
+        client = self.login_client('staff_client', 'staff_user')
+        self.user.is_active = False
+        self.user.save()
+
+        response = client.get(self.account_search_api_url, {'query': self.user.username})
+        assert response.data == []
+
+    def test_search_active_accounts_blank_query(self):
+        client = self.login_client('staff_client', 'staff_user')
+        response = client.get(self.account_search_api_url, {'query': ''})
+        assert response.data == []
+
+    def test_search_active_accounts_with_non_staff_user(self):
+        client = self.login_client('client', 'user')
+        response = client.get(self.account_search_api_url, {'query': self.user.username})
+        assert response.status_code == 404
+        assert response.data == {
+            'developer_message': "not_found",
+            'user_message': "Not Found"
         }
 
     # Note: using getattr so that the patching works even if there is no configuration.
