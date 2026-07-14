@@ -17,6 +17,7 @@ from django.contrib.auth import authenticate, get_user_model, logout
 from django.contrib.sites.models import Site
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Q
 from django.utils.translation import gettext as _
 from django_ratelimit.core import is_ratelimited
 from drf_yasg import openapi
@@ -42,6 +43,8 @@ from wiki.models.pluginbase import RevisionPluginRevision
 from common.djangoapps.track import segment
 from common.djangoapps.entitlements.models import CourseEntitlement
 from common.djangoapps.student.models import (  # lint-amnesty, pylint: disable=unused-import
+    CourseAccessRole,
+    CourseEnrollment,
     CourseEnrollmentAllowed,
     LoginFailures,
     ManualEnrollmentAudit,
@@ -110,6 +113,18 @@ USER_PROFILE_PII = {
     "country": None,
     "bio": None,
     "phone_number": None,
+}
+
+DEFAULT_ACCOUNT_SEARCH_LIMIT = 10
+ACCOUNT_SEARCH_LIMIT = 20
+EXCLUDED_ACCOUNT_SEARCH_EMAILS = {
+    "login_service_user@fake.email",
+    "cms@openedx",
+    "credentials@openedx",
+    "discovery@openedx",
+    "lms_catalog_service_user@openedx",
+    "superset@apache",
+    "aspects@axim"
 }
 
 
@@ -281,6 +296,55 @@ class AccountViewSet(ViewSet):
             )
         users = User.objects.filter(email__in=user_emails)
         data = UserSearchEmailSerializer(users, many=True).data
+        return Response(data)
+
+    def search(self, request):
+        """
+        GET /api/user/v1/accounts/search?query={query}
+        """
+        if not request.user.is_staff:
+            return Response(
+                {"developer_message": "not_found", "user_message": "Not Found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        query = request.query_params.get("query", "").strip()
+        course_id = request.query_params.get("course_id")
+        system_usernames = {
+            settings.JWT_AUTH.get("JWT_LOGIN_SERVICE_USERNAME"),
+            getattr(settings, "CREDENTIALS_SERVICE_USERNAME", None),
+            getattr(settings, "ECOMMERCE_SERVICE_WORKER_USERNAME", None),
+            getattr(settings, "ENTERPRISE_SERVICE_WORKER_USERNAME", None),
+            getattr(settings, "RETIREMENT_SERVICE_WORKER_USERNAME", None),
+        }
+        system_usernames.discard(None)
+
+        users = User.objects.filter(is_active=True).exclude(
+            Q(username__iendswith="_service_user")
+            | Q(username__in=system_usernames)
+            | Q(email__in=EXCLUDED_ACCOUNT_SEARCH_EMAILS)
+        )
+        if course_id:
+            enrolled_user_ids = CourseEnrollment.objects.filter(
+                course_id=course_id,
+                is_active=True,
+            ).values("user_id")
+            course_staff_user_ids = CourseAccessRole.objects.filter(
+                course_id=course_id,
+                role__in=["instructor", "staff", "limited_staff"],
+            ).values("user_id")
+            users = users.filter(
+                id__in=enrolled_user_ids,
+                is_staff=False,
+                is_superuser=False,
+            ).exclude(id__in=course_staff_user_ids)
+        if query:
+            users = users.filter(Q(username__icontains=query) | Q(email__icontains=query))
+
+        ordered_users = users.order_by("username")
+        if not course_id:
+            limit = ACCOUNT_SEARCH_LIMIT if query else DEFAULT_ACCOUNT_SEARCH_LIMIT
+            ordered_users = ordered_users[:limit]
+        data = UserSearchEmailSerializer(ordered_users, many=True).data
         return Response(data)
 
     def retrieve(self, request, username):
