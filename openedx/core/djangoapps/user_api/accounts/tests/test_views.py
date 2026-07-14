@@ -369,6 +369,7 @@ class TestAccountsAPI(FilteredQueryCountMixin, CacheIsolationTestCase, UserAPITe
 
         self.url = reverse("accounts_api", kwargs={'username': self.user.username})
         self.search_api_url = reverse("accounts_search_emails_api")
+        self.account_search_api_url = reverse("accounts_search_api")
 
     def _set_user_age_to_10_years(self, user):
         """
@@ -639,6 +640,77 @@ class TestAccountsAPI(FilteredQueryCountMixin, CacheIsolationTestCase, UserAPITe
         assert response.data == {
             'developer_message': "'emails' field is required",
             'user_message': "'emails' field is required"
+        }
+
+    def test_search_active_accounts_by_username_or_email(self):
+        client = self.login_client('staff_client', 'staff_user')
+        response = client.get(self.account_search_api_url, {'query': self.user.username[:1]})
+        assert {'email': self.user.email, 'id': self.user.id, 'username': self.user.username} in response.data
+
+        response = client.get(self.account_search_api_url, {'query': self.user.email[:3]})
+        assert {'email': self.user.email, 'id': self.user.id, 'username': self.user.username} in response.data
+
+    def test_search_active_accounts_blank_query_returns_first_ten_users(self):
+        client = self.login_client('staff_client', 'staff_user')
+        preload_users = [
+            UserFactory(username=f"000_preload_user_{index:02d}", password=TEST_PASSWORD)
+            for index in range(12)
+        ]
+
+        response = client.get(self.account_search_api_url, {'query': ''})
+        assert len(response.data) == 10
+        assert response.data == [
+            {'email': user.email, 'id': user.id, 'username': user.username}
+            for user in preload_users[:10]
+        ]
+
+    @override_settings(
+        CREDENTIALS_SERVICE_USERNAME="credentials_service_user",
+        ECOMMERCE_SERVICE_WORKER_USERNAME="ecommerce_worker",
+        ENTERPRISE_SERVICE_WORKER_USERNAME="enterprise_worker",
+        RETIREMENT_SERVICE_WORKER_USERNAME="RETIREMENT_SERVICE_USER",
+        JWT_AUTH={"JWT_LOGIN_SERVICE_USERNAME": "login_service_user"},
+    )
+    def test_search_active_accounts_excludes_system_users(self):
+        client = self.login_client('staff_client', 'staff_user')
+        system_users = [
+            UserFactory(username="login_service_user", email="login_service_user@fake.email", password=TEST_PASSWORD),
+            UserFactory(username="cms", email="cms@openedx", password=TEST_PASSWORD),
+            UserFactory(username="credentials", email="credentials@openedx", password=TEST_PASSWORD),
+            UserFactory(username="discovery", email="discovery@openedx", password=TEST_PASSWORD),
+            UserFactory(username="lms_catalog_service_user", email="lms_catalog_service_user@openedx", password=TEST_PASSWORD),
+            UserFactory(username="superset", email="superset@apache", password=TEST_PASSWORD),
+            UserFactory(username="aspects", email="aspects@axim", password=TEST_PASSWORD),
+            UserFactory(username="credentials_service_user", password=TEST_PASSWORD),
+            UserFactory(username="ecommerce_worker", password=TEST_PASSWORD),
+            UserFactory(username="enterprise_worker", password=TEST_PASSWORD),
+            UserFactory(username="RETIREMENT_SERVICE_USER", password=TEST_PASSWORD),
+        ]
+        normal_user = UserFactory(username="service_learner", email="service_learner@example.com", password=TEST_PASSWORD)
+
+        response = client.get(self.account_search_api_url, {'query': 'service'})
+        returned_usernames = {user["username"] for user in response.data}
+        returned_emails = {user["email"] for user in response.data}
+
+        assert normal_user.username in returned_usernames
+        assert not returned_usernames.intersection({user.username for user in system_users})
+        assert not returned_emails.intersection({user.email for user in system_users})
+
+    def test_search_active_accounts_excludes_inactive_users(self):
+        client = self.login_client('staff_client', 'staff_user')
+        self.user.is_active = False
+        self.user.save()
+
+        response = client.get(self.account_search_api_url, {'query': self.user.username})
+        assert response.data == []
+
+    def test_search_active_accounts_with_non_staff_user(self):
+        client = self.login_client('client', 'user')
+        response = client.get(self.account_search_api_url, {'query': self.user.username})
+        assert response.status_code == 404
+        assert response.data == {
+            'developer_message': "not_found",
+            'user_message': "Not Found"
         }
 
     # Note: using getattr so that the patching works even if there is no configuration.
