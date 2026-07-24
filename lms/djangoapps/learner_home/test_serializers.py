@@ -176,18 +176,38 @@ class TestCourseSerializer(LearnerDashboardBaseTest):
         test_enrollment = self.create_test_enrollment()
         course_id = test_enrollment.course_overview.id
         test_context = self.create_test_context(course_id)
+        instructor_info = {
+            "instructors": [
+                {
+                    "name": random_string(),
+                    "title": random_string(),
+                    "organization": random_string(),
+                    "image": random_url(),
+                    "bio": random_string(),
+                },
+            ],
+        }
+        course_details = mock.Mock(instructor_info=instructor_info, effort=random_string())
 
         input_data = test_enrollment.course_overview
-        output_data = CourseSerializer(input_data, context=test_context).data
+        with mock.patch(
+            "lms.djangoapps.learner_home.serializers.CourseDetails.fetch",
+            return_value=course_details,
+        ):
+            output_data = CourseSerializer(input_data, context=test_context).data
 
         assert output_data == {
             "bannerImgSrc": test_enrollment.course_overview.banner_image_url,
             "courseName": test_enrollment.course_overview.display_name_with_default,
             "courseNumber": test_enrollment.course_overview.display_number_with_default,
+            "effort": test_enrollment.course_overview.effort or course_details.effort,
+            "shortDescription": test_enrollment.course_overview.short_description,
+            "instructorInfo": instructor_info,
             "socialShareUrl": test_context["course_share_urls"][course_id],
         }
 
 
+@ddt.ddt
 class TestCourseRunSerializer(LearnerDashboardBaseTest):
     """Tests for the CourseRunSerializer"""
 
@@ -226,6 +246,25 @@ class TestCourseRunSerializer(LearnerDashboardBaseTest):
 
         # Then the resumeUrl is None, which is allowed
         self.assertIsNone(output_data["resumeUrl"])
+
+    @ddt.data(
+        ({"complete_count": 2, "incomplete_count": 0, "locked_count": 0}, True),
+        ({"complete_count": 2, "incomplete_count": 1, "locked_count": 0}, False),
+        ({"complete_count": 2, "incomplete_count": 0, "locked_count": 1}, False),
+        ({"complete_count": 0, "incomplete_count": 0, "locked_count": 0}, False),
+        ({}, False),
+    )
+    @ddt.unpack
+    @mock.patch("lms.djangoapps.learner_home.serializers.get_course_blocks_completion_summary")
+    def test_is_completed(self, completion_summary, expected_is_completed, mock_completion_summary):
+        input_data = self.create_test_enrollment()
+        input_context = self.create_test_context(input_data.course.id)
+        mock_completion_summary.return_value = completion_summary
+
+        output_data = CourseRunSerializer(input_data, context=input_context).data
+
+        self.assertEqual(output_data["isCompleted"], expected_is_completed)
+        mock_completion_summary.assert_called_once_with(input_data.course_id, input_data.user)
 
     def is_progress_url_matching_course_home_mfe_progress_tab_is_active(self):
         """

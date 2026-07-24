@@ -13,6 +13,8 @@ from rest_framework import serializers
 from openedx_filters.learning.filters import CourseEnrollmentAPIRenderStarted, CourseRunAPIRenderStarted
 
 from common.djangoapps.course_modes.models import CourseMode
+from lms.djangoapps.courseware.courses import get_course_blocks_completion_summary
+from openedx.core.djangoapps.models.course_details import CourseDetails
 from openedx.features.course_experience import course_home_url
 from xmodule.data import CertificatesDisplayBehaviors
 from lms.djangoapps.learner_home.utils import course_progress_url
@@ -71,7 +73,21 @@ class CourseSerializer(serializers.Serializer):
     bannerImgSrc = serializers.URLField(source="image_urls.small")
     courseName = serializers.CharField(source="display_name_with_default")
     courseNumber = serializers.CharField(source="display_number_with_default")
+    effort = serializers.SerializerMethodField()
+    shortDescription = serializers.CharField(source="short_description", allow_blank=True, allow_null=True)
+    instructorInfo = serializers.SerializerMethodField()
     socialShareUrl = serializers.SerializerMethodField()
+
+    def _get_course_details(self, instance):
+        if not hasattr(instance, "_learner_home_course_details"):
+            instance._learner_home_course_details = CourseDetails.fetch(instance.id)
+        return instance._learner_home_course_details
+
+    def get_effort(self, instance):
+        return instance.effort or self._get_course_details(instance).effort
+
+    def get_instructorInfo(self, instance):
+        return self._get_course_details(instance).instructor_info or {"instructors": []}
 
     def get_socialShareUrl(self, instance):
         return self.context.get("course_share_urls", {}).get(instance.id)
@@ -92,6 +108,7 @@ class CourseRunSerializer(serializers.Serializer):
 
     isStarted = serializers.SerializerMethodField()
     isArchived = serializers.SerializerMethodField()
+    isCompleted = serializers.SerializerMethodField()
     courseId = serializers.CharField(source="course_id")
     minPassingGrade = serializers.DecimalField(
         max_digits=5, decimal_places=2, source="course_overview.lowest_passing_grade"
@@ -113,6 +130,18 @@ class CourseRunSerializer(serializers.Serializer):
 
     def get_isArchived(self, instance):
         return instance.course_overview.has_ended()
+
+    def get_isCompleted(self, instance):
+        completion_summary = get_course_blocks_completion_summary(instance.course_id, instance.user)
+        if not completion_summary:
+            return False
+
+        complete_count = completion_summary.get("complete_count", 0)
+        incomplete_count = completion_summary.get("incomplete_count", 0)
+        locked_count = completion_summary.get("locked_count", 0)
+        total_count = complete_count + incomplete_count + locked_count
+
+        return total_count > 0 and complete_count == total_count
 
     def get_homeUrl(self, instance):
         return course_home_url(instance.course_id)
