@@ -16,7 +16,7 @@ from openedx.core.lib.api.view_utils import DeveloperErrorViewMixin, view_auth_c
 from . import USE_RATE_LIMIT_2_FOR_COURSE_LIST_API, USE_RATE_LIMIT_10_FOR_COURSE_LIST_API
 from .api import course_detail, list_course_keys, list_courses
 from .forms import CourseDetailGetForm, CourseIdListGetForm, CourseListGetForm
-from .serializers import CourseDetailSerializer, CourseKeySerializer, CourseSerializer
+from .serializers import CourseDetailSerializer, CourseKeySerializer, CourseSerializer, CourseWithInstructorSerializer
 
 
 @view_auth_classes(is_authenticated=False)
@@ -372,6 +372,41 @@ class CourseListView(DeveloperErrorViewMixin, ListAPIView):
         POST courses filter.
         """
         return self.list(request, *args, **kwargs)
+
+
+class LatestCourseListView(CourseListView):
+    """
+    List the latest visible courses with instructor information.
+    """
+
+    serializer_class = CourseWithInstructorSerializer
+
+    def get_queryset(self):
+        """
+        Yield the three latest courses visible to the user.
+        """
+        form_data = self.request.query_params
+        if self.request.method == 'POST':
+            form_data = self.request.data
+        form = CourseListGetForm(
+            data=form_data,
+            initial={'requesting_user': self.request.user}
+        )
+        if not form.is_valid():
+            raise ValidationError(form.errors)
+
+        courses = list_courses(
+            self.request,
+            form.cleaned_data['username'],
+            org=form.cleaned_data['org'],
+            filter_=form.cleaned_data['filter_'],
+            search_term=form.cleaned_data['search_term'],
+            permissions=form.cleaned_data['permissions'],
+            active_only=form.cleaned_data.get('active_only', False),
+            course_keys=form.cleaned_data['course_keys'],
+            mobile_search=form.cleaned_data.get('mobile_search', False),
+        )
+        return sorted(courses, key=lambda course: course.created, reverse=True)[:3]
 
 
 class CourseIdListUserThrottle(UserRateThrottle):
