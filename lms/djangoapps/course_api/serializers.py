@@ -139,6 +139,20 @@ class CourseSerializer(serializers.Serializer):  # pylint: disable=abstract-meth
         return self.context['request'].build_absolute_uri(base_url)
 
 
+class InstructorInfoMixin(serializers.Serializer):  # pylint: disable=abstract-method
+    """
+    Serializer mixin for instructor information from course details.
+    """
+
+    instructor_info = serializers.SerializerMethodField()
+
+    def get_instructor_info(self, course_overview):
+        """
+        Get instructor information from the course details.
+        """
+        return CourseDetails.fetch(course_overview.id).instructor_info or {"instructors": []}
+
+
 class CourseDetailSerializer(CourseSerializer):  # pylint: disable=abstract-method
     """
     Serializer for Course objects providing additional details about the
@@ -184,6 +198,12 @@ class CourseDetailSerializer(CourseSerializer):  # pylint: disable=abstract-meth
                 requested_user = User.objects.get(username=requested_username)
                 response['is_enrolled'] = CourseEnrollment.is_enrolled(requested_user, instance.id)
         return response
+
+
+class CourseWithInstructorSerializer(InstructorInfoMixin, CourseDetailSerializer):  # pylint: disable=abstract-method
+    """
+    Course detail serializer with instructor information.
+    """
 
 
 class CourseKeySerializer(serializers.BaseSerializer):  # pylint:disable=abstract-method
