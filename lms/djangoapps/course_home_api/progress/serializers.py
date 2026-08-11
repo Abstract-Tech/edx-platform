@@ -8,6 +8,7 @@ from rest_framework.reverse import reverse
 from pytz import UTC
 
 from lms.djangoapps.course_home_api.serializers import ReadOnlySerializer, VerifiedModeSerializer
+from lms.djangoapps.course_home_api.progress.api import _subsection_has_attempt
 
 
 class CourseGradeSerializer(ReadOnlySerializer):
@@ -27,6 +28,8 @@ class SubsectionScoresSerializer(ReadOnlySerializer):
     block_key = serializers.SerializerMethodField()
     display_name = serializers.CharField()
     due = serializers.DateTimeField(allow_null=True)
+    has_attempted = serializers.SerializerMethodField()
+    has_been_graded = serializers.BooleanField(source='attempted_graded')
     has_graded_assignment = serializers.BooleanField(source='graded')
     override = serializers.SerializerMethodField()
     learner_has_access = serializers.SerializerMethodField()
@@ -61,6 +64,18 @@ class SubsectionScoresSerializer(ReadOnlySerializer):
             for score in subsection.problem_scores.values()
         ]
         return problem_scores
+
+    def get_has_attempted(self, subsection):
+        cached_value = getattr(subsection, 'progress_has_attempted', None)
+        if cached_value is not None:
+            return cached_value
+
+        return _subsection_has_attempt(
+            subsection,
+            user=self.context['progress_user'],
+            course_key=self.context['course_key'],
+            cache=self.context.get('attempt_cache'),
+        )
 
     def get_url(self, subsection):
         """
@@ -138,6 +153,7 @@ class AssignmentTypeScoresSerializer(ReadOnlySerializer):
     weighted_grade = serializers.FloatField()
     last_grade_publish_date = serializers.DateTimeField()
     has_hidden_contribution = serializers.CharField()
+    has_pending_grades = serializers.CharField()
     short_label = serializers.CharField()
     num_droppable = serializers.IntegerField()
 

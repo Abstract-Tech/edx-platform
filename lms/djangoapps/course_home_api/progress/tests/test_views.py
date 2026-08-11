@@ -52,6 +52,9 @@ class ProgressTabTestViews(BaseCourseHomeTests):
         subsection = BlockFactory(parent=chapter, category='sequential', graded=True, **kwargs)
         vertical = BlockFactory(parent=subsection, category='vertical', graded=True)
         problem = BlockFactory(parent=vertical, category='problem', graded=True)
+        # Stashed so callers can look up the exact subsection they just created
+        # (e.g. by block_key) instead of relying on its position in section_scores.
+        self.last_added_subsection = subsection
         return problem
 
     @ddt.data(CourseMode.AUDIT, CourseMode.VERIFIED)
@@ -73,6 +76,37 @@ class ProgressTabTestViews(BaseCourseHomeTests):
             assert response.data['certificate_data'] is None
         elif enrollment_mode == CourseMode.AUDIT:
             assert response.data['certificate_data']['cert_status'] == 'audit_passing'
+
+    def test_section_scores_include_has_been_graded(self):
+        """
+        Subsection scores must report whether they've actually been graded yet,
+        so the frontend can distinguish "not yet graded" from "graded 0".
+        Exercise both states: unattempted (should be False) and after an
+        attempt is recorded (should be True).
+        """
+        CourseEnrollment.enroll(self.user, self.course.id)
+        problem = self.add_subsection_with_problem()
+        subsection_block_key = str(self.last_added_subsection.location)
+
+        def get_subsection():
+            """Fetch the progress tab and pull out the subsection we created, by block_key."""
+            response = self.client.get(self.url)
+            assert response.status_code == 200
+            for section in response.data['section_scores']:
+                for subsection in section['subsections']:
+                    if subsection['block_key'] == subsection_block_key:
+                        return subsection
+            raise AssertionError(f'subsection {subsection_block_key} not found in section_scores')
+
+        # Before any attempt, the subsection has not been graded.
+        subsection = get_subsection()
+        assert subsection['has_been_graded'] is False
+
+        # Submitting an answer should flip has_been_graded to True.
+        answer_problem(self.course, get_mock_request(self.user), problem)
+
+        subsection = get_subsection()
+        assert subsection['has_been_graded'] is True
 
     @ddt.data(True, False)
     def test_get_authenticated_user_not_enrolled(self, has_previously_enrolled):

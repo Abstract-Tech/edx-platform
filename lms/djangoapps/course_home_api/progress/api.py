@@ -4,9 +4,11 @@ Python APIs exposed for the progress tracking functionality of the course home A
 
 from __future__ import annotations
 
+from common.djangoapps.student.models import anonymous_id_for_user
 from django.contrib.auth import get_user_model
 from opaque_keys.edx.keys import CourseKey
 from openedx.core.lib.grade_utils import round_away_from_zero
+from submissions.models import Submission
 from xmodule.graders import ShowCorrectness
 from datetime import datetime, timezone
 
@@ -14,6 +16,64 @@ from lms.djangoapps.courseware.courses import get_course_blocks_completion_summa
 from dataclasses import dataclass, field
 
 User = get_user_model()
+
+
+def _is_openassessment_usage_key(problem_key) -> bool:
+    """Return whether the usage key refers to an ORA block."""
+    block_type = getattr(problem_key, 'block_type', None)
+    if block_type is not None:
+        return block_type == 'openassessment'
+    return 'type@openassessment' in str(problem_key)
+
+
+def _ora_submission_exists(user, course_key, problem_key, cache: dict | None = None) -> bool:
+    """Return whether the learner has a persisted ORA submission for the given problem."""
+    cache_key = (getattr(user, 'id', None), str(course_key), str(problem_key))
+    if cache is not None and cache_key in cache:
+        return cache[cache_key]
+
+    anonymous_ids = []
+    for anonymous_course_key in (course_key, None):
+        anonymous_id = anonymous_id_for_user(user, anonymous_course_key)
+        if anonymous_id and anonymous_id not in anonymous_ids:
+            anonymous_ids.append(anonymous_id)
+
+    exists = False
+    if anonymous_ids:
+        exists = Submission.objects.filter(
+            student_item__student_id__in=anonymous_ids,
+            student_item__course_id=str(course_key),
+            student_item__item_id=str(problem_key),
+            student_item__item_type='openassessment',
+        ).exists()
+
+    if cache is not None:
+        cache[cache_key] = exists
+    return exists
+
+
+def _subsection_has_attempt(self_or_subsection, *, user=None, course_key=None, cache: dict | None = None) -> bool:
+    """Return whether the learner attempted any work in this subsection."""
+    all_total = getattr(self_or_subsection, 'all_total', None)
+    if all_total is not None:
+        if getattr(all_total, 'first_attempted', None) is not None:
+            return True
+
+    if bool(getattr(self_or_subsection, 'attempted', False)):
+        return True
+
+    if user is None or course_key is None:
+        return False
+
+    for problem_key in getattr(self_or_subsection, 'problem_scores', {}):
+        if _is_openassessment_usage_key(problem_key) and _ora_submission_exists(
+            user,
+            course_key,
+            problem_key,
+            cache=cache,
+        ):
+            return True
+    return False
 
 
 @dataclass
@@ -35,6 +95,11 @@ class _AssignmentBucket:
         included: Tracks whether each subsection currently counts toward the learner's grade as
             determined by ``SubsectionGrade.show_grades``. Values follow the same convention as
             ``visibilities`` (``True`` / ``False`` / ``None`` placeholders).
+        attempted: Tracks whether each subsection should be treated as not pending in the learner
+            view. ``False`` means the learner attempted the work and grading is still outstanding.
+            ``True`` means the subsection is either already graded or has not been attempted yet.
+            Values follow the same convention as ``visibilities`` (``True`` / ``False`` / ``None``
+            placeholders).
         assignments_created: Count of real subsections inserted into the bucket so far. Once this
             reaches ``num_total``, all placeholder entries have been replaced with actual data.
     """
@@ -44,6 +109,7 @@ class _AssignmentBucket:
     scores: list[float] = field(default_factory=list)
     visibilities: list[bool | None] = field(default_factory=list)
     included: list[bool | None] = field(default_factory=list)
+    attempted: list[bool | None] = field(default_factory=list)
     assignments_created: int = 0
 
     @classmethod
@@ -56,9 +122,10 @@ class _AssignmentBucket:
             scores=[0] * num_total,
             visibilities=[None] * num_total,
             included=[None] * num_total,
+            attempted=[None] * num_total,
         )
 
-    def add_subsection(self, score: float, is_visible: bool, is_included: bool):
+    def add_subsection(self, score: float, is_visible: bool, is_included: bool, is_attempted: bool):
         """Add a subsection’s score and visibility, replacing a placeholder if space remains."""
         if self.assignments_created < self.num_total:
             if self.scores:
@@ -67,9 +134,12 @@ class _AssignmentBucket:
                 self.visibilities.pop(0)
             if self.included:
                 self.included.pop(0)
+            if self.attempted:
+                self.attempted.pop(0)
         self.scores.append(score)
         self.visibilities.append(is_visible)
         self.included.append(is_included)
+        self.attempted.append(is_attempted)
         self.assignments_created += 1
 
     def drop_lowest(self, num_droppable: int):
@@ -79,6 +149,7 @@ class _AssignmentBucket:
             self.scores.pop(idx)
             self.visibilities.pop(idx)
             self.included.pop(idx)
+            self.attempted.pop(idx)
             num_droppable -= 1
 
     def hidden_state(self) -> str:
@@ -90,6 +161,18 @@ class _AssignmentBucket:
         if all_hidden:
             return 'all'
         if some_hidden:
+            return 'some'
+        return 'none'
+
+    def pending_state(self) -> str:
+        """Return whether kept scores are all, some, or none still awaiting grading."""
+        if not self.attempted:
+            return 'none'
+        all_pending = all(a is False for a in self.attempted)
+        some_pending = any(a is False for a in self.attempted)
+        if all_pending:
+            return 'all'
+        if some_pending:
             return 'some'
         return 'none'
 
@@ -115,7 +198,7 @@ class _AssignmentBucket:
 class _AssignmentTypeGradeAggregator:
     """Collects and aggregates subsection grades by assignment type."""
 
-    def __init__(self, course_grade, grading_policy: dict, has_staff_access: bool):
+    def __init__(self, course_grade, grading_policy: dict, has_staff_access: bool, attempt_cache: dict | None = None):
         """Initialize with course grades, grading policy, and staff access flag."""
         self.course_grade = course_grade
         self.grading_policy = grading_policy
@@ -123,6 +206,7 @@ class _AssignmentTypeGradeAggregator:
         self.now = datetime.now(timezone.utc)
         self.policy_map = self._build_policy_map()
         self.buckets: dict[str, _AssignmentBucket] = {}
+        self.attempt_cache = attempt_cache if attempt_cache is not None else {}
 
     def _build_policy_map(self) -> dict:
         """Convert grading policy into a lookup of assignment type → policy info."""
@@ -159,13 +243,26 @@ class _AssignmentTypeGradeAggregator:
                 possible = getattr(graded_total, 'possible', 0.0) if graded_total else 0.0
                 earned = 0.0 if earned is None else earned
                 possible = 0.0 if possible is None else possible
+                # Ignore graded subsections that do not actually expose any scorable work.
+                # These can inherit an assignment format from the grading policy while still
+                # representing content-only units, and should not be classified as pending.
+                if possible <= 0 and earned <= 0:
+                    continue
                 score = (earned / possible) if possible else 0.0
                 is_visible = ShowCorrectness.correctness_available(
                     subsection_grade.show_correctness, subsection_grade.due, self.has_staff_access
                 )
                 is_included = subsection_grade.show_grades(self.has_staff_access)
+                learner_attempted = _subsection_has_attempt(
+                    subsection_grade,
+                    user=self.course_grade.user,
+                    course_key=self.course_grade.course_data.course.id,
+                    cache=self.attempt_cache,
+                )
+                attempted_graded = getattr(subsection_grade, 'attempted_graded', True)
+                is_attempted = not (learner_attempted and not attempted_graded)
                 bucket = self._bucket_for(assignment_type)
-                bucket.add_subsection(score, is_visible, is_included)
+                bucket.add_subsection(score, is_visible, is_included, is_attempted)
                 visibilities_with_due_dates = [ShowCorrectness.PAST_DUE, ShowCorrectness.NEVER_BUT_INCLUDE_GRADE]
                 if subsection_grade.show_correctness in visibilities_with_due_dates:
                     if subsection_grade.due and subsection_grade.due > bucket.last_grade_publish_date:
@@ -190,6 +287,7 @@ class _AssignmentTypeGradeAggregator:
                 'num_droppable': policy.get('num_droppable', 0),
                 'last_grade_publish_date': bucket.last_grade_publish_date,
                 'has_hidden_contribution': bucket.hidden_state(),
+                'has_pending_grades': bucket.pending_state(),
             }
             final_grades += earned_all * weight
             rows.append(row)
@@ -206,6 +304,7 @@ def aggregate_assignment_type_grade_summary(
     course_grade,
     grading_policy: dict,
     has_staff_access: bool = False,
+    attempt_cache: dict | None = None,
 ) -> dict:
     """
     Aggregate subsection grades by assignment type and return summary data.
@@ -218,7 +317,12 @@ def aggregate_assignment_type_grade_summary(
             results: list of per-assignment-type summary dicts
             final_grades: overall weighted contribution (float, 4 decimal rounding)
     """
-    aggregator = _AssignmentTypeGradeAggregator(course_grade, grading_policy, has_staff_access)
+    aggregator = _AssignmentTypeGradeAggregator(
+        course_grade,
+        grading_policy,
+        has_staff_access,
+        attempt_cache=attempt_cache,
+    )
     return aggregator.run()
 
 
