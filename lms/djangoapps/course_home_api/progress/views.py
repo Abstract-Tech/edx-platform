@@ -16,7 +16,10 @@ from xmodule.modulestore.django import modulestore
 from xmodule.graders import ShowCorrectness
 from common.djangoapps.student.models import CourseEnrollment
 from lms.djangoapps.course_home_api.progress.serializers import ProgressTabSerializer
-from lms.djangoapps.course_home_api.progress.api import aggregate_assignment_type_grade_summary
+from lms.djangoapps.course_home_api.progress.api import (
+    _subsection_has_attempt,
+    aggregate_assignment_type_grade_summary,
+)
 
 from lms.djangoapps.course_home_api.toggles import course_home_mfe_progress_tab_is_active
 from lms.djangoapps.courseware.access import has_access, has_ccx_coach_role
@@ -179,7 +182,7 @@ class ProgressTabView(RetrieveAPIView):
         except User.DoesNotExist as exc:
             raise Http404 from exc
 
-    def _visible_section_scores(self, course_grade):
+    def _visible_section_scores(self, course_grade, student, course_key, attempt_cache):
         """Return only those chapter/section scores that are visible to the learner."""
         visible_chapters = []
         for chapter in course_grade.chapter_grades.values():
@@ -188,6 +191,13 @@ class ProgressTabView(RetrieveAPIView):
                 for subsection in chapter["sections"]
                 if getattr(subsection, "show_correctness", None) != ShowCorrectness.NEVER_BUT_INCLUDE_GRADE
             ]
+            for subsection in filtered_sections:
+                subsection.progress_has_attempted = _subsection_has_attempt(
+                    subsection,
+                    user=student,
+                    course_key=course_key,
+                    cache=attempt_cache,
+                )
             visible_chapters.append({**chapter, "sections": filtered_sections})
         return visible_chapters
 
@@ -262,14 +272,17 @@ class ProgressTabView(RetrieveAPIView):
         access_expiration = get_access_expiration_data(request.user, course_overview)
 
         # Aggregations delegated to helper functions for reuse and testability
+        attempt_cache = {}
+
         assignment_type_grade_summary = aggregate_assignment_type_grade_summary(
             course_grade,
             grading_policy,
             has_staff_access=is_staff,
+            attempt_cache=attempt_cache,
         )
 
         # Filter out section scores to only have those that are visible to the user
-        section_scores = self._visible_section_scores(course_grade)
+        section_scores = self._visible_section_scores(course_grade, student, course_key, attempt_cache)
 
         data = {
             'access_expiration': access_expiration,
@@ -294,6 +307,8 @@ class ProgressTabView(RetrieveAPIView):
         context['staff_access'] = is_staff
         context['course_blocks'] = course_blocks
         context['course_key'] = course_key
+        context['progress_user'] = student
+        context['attempt_cache'] = attempt_cache
         # course_overview and enrollment will be used by VerifiedModeSerializer
         context['course_overview'] = course_overview
         context['enrollment'] = enrollment
