@@ -15,7 +15,7 @@
                 datetime: date,
                 language: userLanguage,
                 timezone: userTimezone,
-                format: DateUtils.dateFormatEnum.shortDate
+                format: 'LL',
             };
             return DateUtils.localize(context);
         }
