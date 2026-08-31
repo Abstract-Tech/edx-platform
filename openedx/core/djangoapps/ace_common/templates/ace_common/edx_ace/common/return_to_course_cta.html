@@ -2,7 +2,7 @@
 {% load ace %}
 
 <p>
-    {# Inline styles for email client compatibility. #}
+    {# email client support for style sheets is pretty spotty, so we have to inline all of these styles #}
     <a
         {% if reset_url %}
             href="{{ reset_url }}"
