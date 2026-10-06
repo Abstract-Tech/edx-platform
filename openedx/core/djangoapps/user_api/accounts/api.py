@@ -197,7 +197,8 @@ def _validate_read_only_fields(user, data, field_errors):
         # Remove email since it is handled separately below when checking for changing_email.
         (set(AccountUserSerializer.get_read_only_fields()) - {"email"}) |
         set(AccountLegacyProfileSerializer.get_read_only_fields() or set()) |
-        get_enterprise_readonly_account_fields(user)
+        get_enterprise_readonly_account_fields(user) |
+        set(getattr(settings, "ACCOUNT_READ_ONLY_FIELDS", ()))
     )
 
     for read_only_field in read_only_fields:

@@ -2779,6 +2779,9 @@ SEARCH_SKIP_INVITATION_ONLY_FILTERING = True
 SEARCH_SKIP_SHOW_IN_CATALOG_FILTERING = True
 
 # The configuration visibility of account fields.
+# Impower identity fields are managed by the IdP, not learner account APIs.
+ACCOUNT_READ_ONLY_FIELDS = ("name", "email")
+
 ACCOUNT_VISIBILITY_CONFIGURATION = {
     # Default visibility level for accounts without a specified value
     # The value is one of: 'all_users', 'private'
