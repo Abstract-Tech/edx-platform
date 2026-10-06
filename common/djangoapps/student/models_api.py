@@ -4,6 +4,8 @@ Provides Python APIs exposed from Student models.
 import datetime
 import logging
 
+from openedx.core.djangoapps.user_api.accounts.field_policy import require_editable_account_field
+
 from pytz import UTC
 
 from common.djangoapps.student.models import CourseAccessRole as _CourseAccessRole
@@ -126,6 +128,7 @@ def do_name_change_request(user, new_name, rationale):
     a new one if it doesn't exist. Returns the PendingNameChange object and a boolean describing whether
     or not a new one was created.
     """
+    require_editable_account_field('name')
     user_profile = _UserProfile.objects.get(user=user)
     if user_profile.name == new_name:
         log_msg = (
@@ -151,6 +154,7 @@ def confirm_name_change(user, pending_name_change):
     Confirm a pending name change. This updates the user's profile name and deletes the
     PendingNameChange object.
     """
+    require_editable_account_field('name')
     user_profile = _UserProfile.objects.get(user=user)
 
     # Store old name in profile metadata

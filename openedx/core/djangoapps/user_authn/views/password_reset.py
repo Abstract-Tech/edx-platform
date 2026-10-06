@@ -1,6 +1,8 @@
 """ Password reset logic and views . """
 import logging
 
+from openedx.core.djangoapps.user_api.accounts.field_policy import require_editable_account_field
+
 from django import forms
 from django.conf import settings
 from django.contrib import messages
@@ -491,6 +493,8 @@ class PasswordResetConfirmWrapper(PasswordResetConfirmView):
         request.POST['new_password1'] = normalize_password(request.POST['new_password1'])
         request.POST['new_password2'] = normalize_password(request.POST['new_password2'])
         is_account_recovery = 'is_account_recovery' in request.GET
+        if is_account_recovery:
+            require_editable_account_field('email')
 
         password = request.POST['new_password1']
         response = self._validate_password(password, request)
@@ -753,6 +757,9 @@ class LogistrationPasswordResetView(APIView):  # lint-amnesty, pylint: disable=m
         if not has_required_values:
             AUDIT_LOG.exception("Invalid password reset confirm token")
             return Response({'reset_status': reset_status, 'token_invalid': True})
+
+        if 'is_account_recovery' in request.GET:
+            require_editable_account_field('email')
 
         request.data._mutable = True  # lint-amnesty, pylint: disable=protected-access
         request.data['new_password1'] = normalize_password(request.data['new_password1'])

@@ -7,6 +7,8 @@ import datetime
 import logging
 import urllib.parse
 import uuid
+from openedx.core.djangoapps.user_api.accounts.field_policy import require_editable_account_field
+
 from collections import namedtuple
 import re
 
@@ -765,6 +767,9 @@ def do_email_change_request(user, new_email, activation_key=None, secondary_emai
     to the new address. If any issues are encountered with verification or sending the message, a ValueError will
     be thrown.
     """
+    if not secondary_email_change_request:
+        require_editable_account_field('email')
+
     # if activation_key is not passing as an argument, generate a random key
     if not activation_key:
         activation_key = uuid.uuid4().hex
@@ -882,6 +887,7 @@ def confirm_email_change(request, key):
             return response
 
         user = pec.user
+        require_editable_account_field('email')
         address_context = {
             'old_email': user.email,
             'new_email': pec.new_email
