@@ -2,6 +2,7 @@
 
 
 import json
+import unittest
 from unittest import mock
 
 import ddt
@@ -118,3 +119,53 @@ class PipelineOverridesTest(SamlIntegrationTestUtilities, IntegrationTestMixin, 
         __, strategy = self.get_request_and_strategy()
         final_username = pipeline.get_username(strategy, details, self.provider.backend_class())
         assert final_username['username'] == 'invalid'
+
+
+class AzureSamlDetailsTestCase(unittest.TestCase):
+    """Tests for pipeline.set_user_details_from_azure_saml."""
+
+    CLAIM = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/"
+    MS_CLAIM = "http://schemas.microsoft.com/identity/claims/"
+
+    def _run(self, attributes, details=None):
+        backend = mock.Mock()
+        backend.name = "tpa-saml"
+        result = pipeline.set_user_details_from_azure_saml(
+            strategy=None,
+            backend=backend,
+            uid="uid",
+            response={"attributes": attributes},
+            details=details if details is not None else {},
+        )
+        return result["details"]
+
+    def test_email_name_claim_is_not_used_as_fullname(self):
+        details = self._run({
+            self.MS_CLAIM + "emailaddress": ["s-0001160@student.german-uds.de"],
+            self.CLAIM + "givenname": ["Anna"],
+            self.CLAIM + "surname": ["Muster"],
+            self.CLAIM + "name": ["s-0001160@student.german-uds.de"],
+        })
+        assert details["fullname"] == "Anna Muster"
+        assert details["username"] == "s-0001160"
+
+    def test_provider_mapped_fullname_is_kept(self):
+        details = self._run(
+            {
+                self.MS_CLAIM + "emailaddress": ["s-0001160@student.german-uds.de"],
+                self.CLAIM + "name": ["s-0001160@student.german-uds.de"],
+            },
+            details={"fullname": "Anna Muster"},
+        )
+        assert details["fullname"] == "Anna Muster"
+
+    def test_username_claim_does_not_override_email_prefix(self):
+        details = self._run({
+            self.MS_CLAIM + "emailaddress": ["s-0001160@student.german-uds.de"],
+            self.MS_CLAIM + "username": ["sylvia4"],
+        })
+        assert details["username"] == "s-0001160"
+
+    def test_email_only_falls_back_to_email_prefix(self):
+        details = self._run({self.MS_CLAIM + "emailaddress": ["s-0001160@student.german-uds.de"]})
+        assert details["fullname"] == "s-0001160"

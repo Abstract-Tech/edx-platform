@@ -805,7 +805,18 @@ def set_user_details_from_azure_saml(strategy, backend, uid, response, details, 
     if last_name:
         updates["last_name"] = last_name
 
-    derived_fullname = full_name or " ".join(filter(None, [first_name, last_name]))
+    # Azure's `.../claims/name` is usually the UPN (i.e. the e-mail address), so it must never be
+    # used as the display name unless it really is a name. Prefer what the provider mapping already
+    # gave us, then given name + surname, then the `name` claim, and only then the e-mail prefix.
+    def _usable_name(value):
+        value = (value or "").strip()
+        return value if value and not EMAIL_RE.match(value) else None
+
+    derived_fullname = (
+        _usable_name(details.get("fullname"))
+        or _usable_name(" ".join(filter(None, [first_name, last_name])))
+        or _usable_name(full_name)
+    )
     if not derived_fullname and email:
         derived_fullname = email.split("@")[0]
     if derived_fullname:
@@ -816,13 +827,15 @@ def set_user_details_from_azure_saml(strategy, backend, uid, response, details, 
     else:
         logger.warning("[AZURE SSO] No email found in SAML response!")
 
+    # The username is the part of the e-mail address before the "@" (e.g. s-0001160). The Azure
+    # `username` claim is only a fallback, since it can hold unrelated aliases such as `sylvia4`.
     username = None
-    if username_hint:
-        username = username_hint.lower()
-        logger.info("[AZURE SSO] Using username from Azure: %s", username)
-    elif email:
+    if email:
         username = email.split("@")[0].lower()
         logger.info("[AZURE SSO] Username derived from email prefix: %s", username)
+    elif username_hint:
+        username = username_hint.split("@")[0].lower()
+        logger.info("[AZURE SSO] Using username from Azure: %s", username)
     elif derived_fullname:
         username = derived_fullname.replace(" ", "").lower()
         logger.info("[AZURE SSO] Username derived from fullname: %s", username)
