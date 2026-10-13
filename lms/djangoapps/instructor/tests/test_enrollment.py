@@ -12,6 +12,7 @@ import pytest
 from ccx_keys.locator import CCXLocator
 from crum import set_current_request
 from django.conf import settings
+from django.test.utils import override_settings
 from django.utils.translation import get_language
 from django.utils.translation import override as override_language
 from opaque_keys.edx.locator import CourseLocator
@@ -966,6 +967,16 @@ class TestGetEmailParams(SharedModuleStoreTestCase):
         assert result['registration_url'] == self.registration_url
         assert result['course_url'] == self.course_url
         assert result['logo_url'] == self.logo_url
+
+    @override_settings(MICROSITE_DOMAIN='lms.open.example.com')
+    def test_microsite_domain_used_for_links(self):
+        # Links must point at MICROSITE_DOMAIN, while site_name keeps the SITE_NAME value.
+        result = get_email_params(self.course, False)
+
+        assert result['site_name'] == settings.SITE_NAME
+        assert result['course_url'] == f'https://lms.open.example.com/courses/{self.course.id}/'
+        assert result['course_about_url'] == result['course_url'] + 'about'
+        assert result['registration_url'] == 'https://lms.open.example.com/register'
 
     @patch('lms.djangoapps.instructor.enrollment.get_logo_url_for_email', return_value='https://www.logo.png')
     def test_logo_url_params(self, mock_get_logo_url_for_email):

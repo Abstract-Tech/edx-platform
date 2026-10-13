@@ -497,16 +497,19 @@ def get_email_params(course, auto_enroll, secure=True, course_key=None, display_
         'SITE_NAME',
         settings.SITE_NAME
     )
+    # Links in the email must point at the LMS host (MICROSITE_DOMAIN, e.g. "lms.open.<domain>"),
+    # not the public "open.<domain>" SITE_NAME.
+    url_host = getattr(settings, 'MICROSITE_DOMAIN', None) or stripped_site_name
     # TODO: Use request.build_absolute_uri rather than '{proto}://{site}{path}'.format
     # and check with the Services team that this works well with microsites
     registration_url = '{proto}://{site}{path}'.format(
         proto=protocol,
-        site=stripped_site_name,
+        site=url_host,
         path=reverse('register_user')
     )
     course_url = '{proto}://{site}{path}'.format(
         proto=protocol,
-        site=stripped_site_name,
+        site=url_host,
         path=reverse('course_root', kwargs={'course_id': course_key})
     )
 
@@ -515,7 +518,7 @@ def get_email_params(course, auto_enroll, secure=True, course_key=None, display_
     if not settings.FEATURES.get('ENABLE_MKTG_SITE', False):
         course_about_url = '{proto}://{site}{path}'.format(
             proto=protocol,
-            site=stripped_site_name,
+            site=url_host,
             path=reverse('about_course', kwargs={'course_id': course_key})
         )
 
