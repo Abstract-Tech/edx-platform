@@ -1,0 +1,28 @@
+{% comment %}
+  Indigo's Gantari font faces for email templates. Email clients may ignore
+  these declarations, so every consuming style must include fallbacks.
+{% endcomment %}
+<style type="text/css">
+  @font-face { font-family: 'Gantari'; src: local('Gantari Thin'), url('{{ font_urls.thin }}') format('truetype'); font-weight: 100; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari ExtraLight'), url('{{ font_urls.extra_light }}') format('truetype'); font-weight: 200; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari Light'), url('{{ font_urls.light }}') format('truetype'); font-weight: 300; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari Regular'), url('{{ font_urls.regular }}') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari Medium'), url('{{ font_urls.medium }}') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari SemiBold'), url('{{ font_urls.semi_bold }}') format('truetype'); font-weight: 600; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari Bold'), url('{{ font_urls.bold }}') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari ExtraBold'), url('{{ font_urls.extra_bold }}') format('truetype'); font-weight: 800; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari Black'), url('{{ font_urls.black }}') format('truetype'); font-weight: 900; font-style: normal; font-display: swap; }
+
+  @font-face { font-family: 'Gantari'; src: local('Gantari Thin Italic'), url('{{ font_urls.thin_italic }}') format('truetype'); font-weight: 100; font-style: italic; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari ExtraLight Italic'), url('{{ font_urls.extra_light_italic }}') format('truetype'); font-weight: 200; font-style: italic; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari Light Italic'), url('{{ font_urls.light_italic }}') format('truetype'); font-weight: 300; font-style: italic; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari Italic'), url('{{ font_urls.regular_italic }}') format('truetype'); font-weight: 400; font-style: italic; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari Medium Italic'), url('{{ font_urls.medium_italic }}') format('truetype'); font-weight: 500; font-style: italic; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari SemiBold Italic'), url('{{ font_urls.semi_bold_italic }}') format('truetype'); font-weight: 600; font-style: italic; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari Bold Italic'), url('{{ font_urls.bold_italic }}') format('truetype'); font-weight: 700; font-style: italic; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari ExtraBold Italic'), url('{{ font_urls.extra_bold_italic }}') format('truetype'); font-weight: 800; font-style: italic; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari Black Italic'), url('{{ font_urls.black_italic }}') format('truetype'); font-weight: 900; font-style: italic; font-display: swap; }
+
+  @font-face { font-family: 'Gantari'; src: local('Gantari'), url('{{ font_urls.variable }}') format('truetype'); font-weight: 100 900; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Gantari'; src: local('Gantari Italic'), url('{{ font_urls.variable_italic }}') format('truetype'); font-weight: 100 900; font-style: italic; font-display: swap; }
+</style>

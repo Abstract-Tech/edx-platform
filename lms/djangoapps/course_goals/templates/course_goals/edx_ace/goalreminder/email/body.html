@@ -5,7 +5,7 @@
 {% load static %}
 {% block table_style %}
     style="
-        font-family: Inter, Arial, sans-serif !important;
+        font-family: 'Gantari', Arial, 'Helvetica Neue', Helvetica, sans-serif !important;
         font-size: 1em;
         line-height: 1.5;
         max-width: 600px;
@@ -36,14 +36,14 @@
 </tr>
 <tr>
   <td>
-    <p style="margin-top: 16px; color: #1F453D; font-family: Arial; font-size: 30px; font-weight: 700; line-height: 36px; margin-left: 30px; margin-right: 30px;">
+    <p style="margin-top: 16px; color: #1F453D; font-family: 'Gantari', Arial, 'Helvetica Neue', Helvetica, sans-serif; font-size: 30px; font-weight: 700; line-height: 36px; margin-left: 30px; margin-right: 30px;">
       {% filter force_escape %}
         {% blocktrans with user_name=user_name %}
             You’re almost there, {{ user_name }}!
         {% endblocktrans %}
       {% endfilter %}
     </p>
-    <p style="margin-top: 16px; color: #000000; font-family: Arial; font-size: 16px; font-weight: 400; line-height: 24px; margin-left: 30px; margin-right: 30px;">
+    <p style="margin-top: 16px; color: #000000; font-family: 'Gantari', Arial, 'Helvetica Neue', Helvetica, sans-serif; font-size: 16px; font-weight: 400; line-height: 24px; margin-left: 30px; margin-right: 30px;">
         {% filter force_escape %}
             {% autoescape off %}
                 {% blocktrans count count=days_per_week asvar goal_text %}
@@ -93,7 +93,7 @@
             <!-- Row 1: Image and title -->
                 <!--[if mso]>
                     <tr>                             
-                                    <td style="width: 400px; color: #1F453D; font-size: 16px; font-family: Arial, Helvetica, sans-serif; font-weight: 400; line-height: 24px; width: 100%;">
+                                    <td style="width: 400px; color: #1F453D; font-size: 16px; font-family: 'Gantari', Arial, 'Helvetica Neue', Helvetica, sans-serif; font-weight: 400; line-height: 24px; width: 100%;">
                                         <p style="padding: 20px 30px; margin-left: 30px">
                                             <strong> {% trans "Remember: the best goal is one that you can stick to. " as tmsg %}{{ tmsg | force_escape }} </strong>
                                             {% trans "You can always" as tmsg %}{{ tmsg | force_escape }}
@@ -112,7 +112,7 @@
                 <![endif]-->
                 <!--[if !mso]><!-->     
                     <tr>              
-                        <td style="width: 400px; color: #1F453D; font-size: 16px; font-family: Arial, sans-serif; font-weight: 400; line-height: 24px;">
+                        <td style="width: 400px; color: #1F453D; font-size: 16px; font-family: 'Gantari', Arial, 'Helvetica Neue', Helvetica, sans-serif; font-weight: 400; line-height: 24px;">
                             <p style="padding: 20px 30px; margin: 0px;">
                             <strong> {% trans "Remember: the best goal is one that you can stick to. " as tmsg %}{{ tmsg | force_escape }} </strong>
                             {% trans "You can always" as tmsg %}{{ tmsg | force_escape }}

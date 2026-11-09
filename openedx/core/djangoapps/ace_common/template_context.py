@@ -3,11 +3,38 @@ Context dictionary for templates that use the ace_common base template.
 """
 
 from django.conf import settings
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.urls import NoReverseMatch, reverse
 
 from lms.djangoapps.branding.api import get_logo_url_for_email
 from common.djangoapps.edxmako.shortcuts import marketing_link
 from openedx.core.djangoapps.theming.helpers import get_config_value_from_site_or_settings
+
+
+def get_gantari_font_urls():
+    """Return static URLs for the Gantari font files used by branded emails."""
+    return {
+        'thin': staticfiles_storage.url('fonts/Gantari/Gantari-Thin.ttf'),
+        'extra_light': staticfiles_storage.url('fonts/Gantari/Gantari-ExtraLight.ttf'),
+        'light': staticfiles_storage.url('fonts/Gantari/Gantari-Light.ttf'),
+        'regular': staticfiles_storage.url('fonts/Gantari/Gantari-Regular.ttf'),
+        'medium': staticfiles_storage.url('fonts/Gantari/Gantari-Medium.ttf'),
+        'semi_bold': staticfiles_storage.url('fonts/Gantari/Gantari-SemiBold.ttf'),
+        'bold': staticfiles_storage.url('fonts/Gantari/Gantari-Bold.ttf'),
+        'extra_bold': staticfiles_storage.url('fonts/Gantari/Gantari-ExtraBold.ttf'),
+        'black': staticfiles_storage.url('fonts/Gantari/Gantari-Black.ttf'),
+        'thin_italic': staticfiles_storage.url('fonts/Gantari/Gantari-ThinItalic.ttf'),
+        'extra_light_italic': staticfiles_storage.url('fonts/Gantari/Gantari-ExtraLightItalic.ttf'),
+        'light_italic': staticfiles_storage.url('fonts/Gantari/Gantari-LightItalic.ttf'),
+        'regular_italic': staticfiles_storage.url('fonts/Gantari/Gantari-Italic.ttf'),
+        'medium_italic': staticfiles_storage.url('fonts/Gantari/Gantari-MediumItalic.ttf'),
+        'semi_bold_italic': staticfiles_storage.url('fonts/Gantari/Gantari-SemiBoldItalic.ttf'),
+        'bold_italic': staticfiles_storage.url('fonts/Gantari/Gantari-BoldItalic.ttf'),
+        'extra_bold_italic': staticfiles_storage.url('fonts/Gantari/Gantari-ExtraBoldItalic.ttf'),
+        'black_italic': staticfiles_storage.url('fonts/Gantari/Gantari-BlackItalic.ttf'),
+        'variable': staticfiles_storage.url('fonts/Gantari/Gantari-VariableFont_wght.ttf'),
+        'variable_italic': staticfiles_storage.url('fonts/Gantari/Gantari-Italic-VariableFont_wght.ttf'),
+    }
 
 
 def get_base_template_context(site):
@@ -45,5 +72,6 @@ def get_base_template_context(site):
         'mobile_store_urls': get_config_value_from_site_or_settings('MOBILE_STORE_ACE_URLS', site=site),
         'mobile_store_logo_urls': get_config_value_from_site_or_settings('MOBILE_STORE_LOGO_URLS', site=site),
         'logo_url': get_logo_url_for_email(),
+        'font_urls': get_gantari_font_urls(),
         'site_configuration_values': site_configuration_values,
     }

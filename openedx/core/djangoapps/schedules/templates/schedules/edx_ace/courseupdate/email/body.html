@@ -39,12 +39,12 @@
 </tr>
 <tr>
   <td>
-    <p style="margin-top: 16px; color: #1F453D; font-family: Arial; font-size: 30px; font-weight: 700; line-height: 36px; margin-left: 30px;">
+    <p style="margin-top: 16px; color: #1F453D; font-family: 'Gantari', Arial, 'Helvetica Neue', Helvetica, sans-serif; font-size: 30px; font-weight: 700; line-height: 36px; margin-left: 30px;">
         {% with tmsg=course_name %}
             We hope you're enjoying {{ tmsg }}!
         {% endwith %}
     </p>
-    <p style="margin-top: 16px; color: #000000; font-family: Arial; font-size: 16px; font-weight: 400; line-height: 24px; margin-left: 30px;">
+    <p style="margin-top: 16px; color: #000000; font-family: 'Gantari', Arial, 'Helvetica Neue', Helvetica, sans-serif; font-size: 16px; font-weight: 400; line-height: 24px; margin-left: 30px;">
         {% filter force_escape %}
             We want to let you know what you can look forward to in week {{ week_num }}:
         {% endfilter %}
@@ -76,7 +76,7 @@
             <!-- Row 1: Image and title -->
                 <!--[if mso]>
                     <tr>                             
-                                    <td style="width: 400px; color: #1F453D; font-size: 16px; font-family: Arial, Helvetica, sans-serif; font-weight: 400; line-height: 24px; width: 100%;">
+                                    <td style="width: 400px; color: #1F453D; font-size: 16px; font-family: 'Gantari', Arial, 'Helvetica Neue', Helvetica, sans-serif; font-weight: 400; line-height: 24px; width: 100%;">
                                         <p style="padding: 20px 30px; margin-left: 30px">
                                             <strong>
                                             {% trans "Your focused attention will pay off in the end!" as tmsg %}{{ tmsg | force_escape }}
@@ -95,7 +95,7 @@
                 <![endif]-->
                 <!--[if !mso]><!-->     
                     <tr>              
-                        <td style="width: 400px; color: #1F453D; font-size: 16px; font-family: Arial, sans-serif; font-weight: 400; line-height: 24px;">
+                        <td style="width: 400px; color: #1F453D; font-size: 16px; font-family: 'Gantari', Arial, 'Helvetica Neue', Helvetica, sans-serif; font-weight: 400; line-height: 24px;">
                             <p style="padding: 20px 30px; margin: 0px;">
                             <strong> {% trans "Your focused attention will pay off in the end! " as tmsg %}{{ tmsg | force_escape }} </strong>
                             {% trans "With self-paced courses, you learn on your own schedule. It’s a good idea to spend time with the course each week and check in with your goals often." as tmsg %}{{ tmsg | force_escape }}
