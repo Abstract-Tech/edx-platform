@@ -37,6 +37,11 @@ def get_gantari_font_urls():
     }
 
 
+def get_logo_footer_url_for_email():
+    """Return the absolute URL for the footer logo used in branded emails."""
+    return (settings.LMS_ROOT_URL or '') + '/static/images/logo-footer.svg'
+
+
 def get_base_template_context(site):
     """
     Dict with entries needed for all templates that use the base template.
@@ -72,6 +77,7 @@ def get_base_template_context(site):
         'mobile_store_urls': get_config_value_from_site_or_settings('MOBILE_STORE_ACE_URLS', site=site),
         'mobile_store_logo_urls': get_config_value_from_site_or_settings('MOBILE_STORE_LOGO_URLS', site=site),
         'logo_url': get_logo_url_for_email(),
+        'logo_footer_url': get_logo_footer_url_for_email(),
         'font_urls': get_gantari_font_urls(),
         'site_configuration_values': site_configuration_values,
     }
