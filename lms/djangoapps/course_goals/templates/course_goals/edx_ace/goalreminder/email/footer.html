@@ -44,7 +44,7 @@
                                         <tr>
                                           <td align="center" valign="top">
                                             <a href="{% with_link_tracking homepage_url %}">
-                                            <img src="{{ logo_url }}" width="92" height="65" alt="{% filter force_escape %}{% blocktrans %}Go to {{ platform_name }} Home Page{% endblocktrans %}{% endfilter %}"/></a>
+                                            <img src="{{ logo_footer_url }}" width="124" height="40" style="display:block; width:124px; height:auto; max-width:100%;" alt="{% filter force_escape %}{% blocktrans %}Go to {{ platform_name }} Home Page{% endblocktrans %}{% endfilter %}"/></a>
                                           </td>
                                         </tr>
                                       </tbody>
@@ -167,7 +167,7 @@
                 </tr>
                 <tr>
                   <!-- COPYRIGHT -->
-                  <td align="left" class="fallback_font" style="font-family:Arial,sans-serif;font-size:14px;line-height:21px;color:#000000;font-style: normal;font-weight: 400;" valign="top">
+                  <td align="left" class="fallback_font" style="font-family:'Gantari',Arial,'Helvetica Neue',Helvetica,sans-serif;font-size:14px;line-height:21px;color:#000000;font-style: normal;font-weight: 400;" valign="top">
                     {% if disclaimer %}
                       {{ disclaimer }}<br/>
                     {% endif %}

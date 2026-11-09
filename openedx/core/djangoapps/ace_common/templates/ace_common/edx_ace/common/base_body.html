@@ -29,16 +29,16 @@
 
 {% google_analytics_tracking_pixel %}
 
-<div bgcolor="#f5f5f5" lang="{{ LANGUAGE_CODE|default:"en" }}" dir="{{ LANGUAGE_BIDI|yesno:"rtl,ltr" }}" style="
+<div bgcolor="#ffffff" lang="{{ LANGUAGE_CODE|default:"en" }}" dir="{{ LANGUAGE_BIDI|yesno:"rtl,ltr" }}" style="
   margin: 0;
   padding: 0;
   min-width: 100%;
-  background-color: #f5f5f5;
+  background-color: #ffffff;
   ">
   <!-- Hack for outlook 2010, which wants to render everything in Times New Roman -->
   <!--[if mso]>
   <style type="text/css">
-  body, table, td {font-family: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;}
+  body, table, td {font-family: 'Gantari', Arial, 'Helvetica Neue', Helvetica, sans-serif !important;}
   </style>
   <![endif]-->
 
@@ -49,10 +49,10 @@
   <![endif]-->
 
   <!-- CONTENT -->
-  <table class="content" role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" bgcolor="#fbfaf9" width="100%"
+  <table class="content" role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" width="100%"
     {% block table_style %}
       style="
-      font-family: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-family: 'Gantari', Arial, 'Helvetica Neue', Helvetica, sans-serif;
       font-size: 1em;
       line-height: 1.5;
       max-width: 600px;
@@ -61,14 +61,14 @@
     {% endblock %}
   >
     {% block header %}
-      <td class="header" style="background-color: #f5f5f5;">
-        <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center" bgcolor="#F5F5F5">
+      <td class="header" style="background-color: #ffffff;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center" bgcolor="#ffffff">
           <tr>
             <td valign="top" align="center">
               <table width="600" cellpadding="0" cellspacing="0" align="center" class="width_100percent">
                 <tr>
                   <td valign="top" align="center" style="min-width:600px;" class="min_width">
-                    <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#F5F5F5">
+                    <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#ffffff">
                       <tr><td height="10" style="line-height:1px;">&nbsp;</td></tr>
                       <tr>
                         <td align="left" valign="top" style="padding:0 10px;" class="padding_none">
@@ -79,7 +79,7 @@
                                   <tr>
                                     <td align="left" valign="top">
                                       <a href="{% with_link_tracking homepage_url %}">
-                                        <img src="{{ logo_url }}" style="max-height: 65px;" height="auto" alt="{% filter force_escape %}{% blocktrans %}Go to {{ platform_name }} Home Page{% endblocktrans %}{% endfilter %}"/></a>
+                                        <img src="{{ logo_url }}" width="265" height="50" style="display:block; width:265px; height:auto; max-width:100%;" alt="{% filter force_escape %}{% blocktrans %}Go to {{ platform_name }} Home Page{% endblocktrans %}{% endfilter %}"/></a>
                                     </td>
                                   </tr>
                                 </table>
@@ -93,18 +93,18 @@
                                   <tr>
                                     <td align="left" valign="top" style="color: #d23228;">
                                       {% if courses_url %}
-                                        <a href="{% with_link_tracking courses_url %}" target="_blank" style="font-family:'Inter',Helvetica,Arial,sans-serif;font-size:15px;line-height:20px;text-decoration:none;color:#000001;font-weight:bold;">
+                                        <a href="{% with_link_tracking courses_url %}" target="_blank" style="font-family:'Gantari',Arial,Helvetica,sans-serif;font-size:15px;line-height:20px;text-decoration:none;color:#000001;font-weight:bold;">
                                           {% trans "Courses" as tmsg %}{{ tmsg | force_escape }}
                                         </a>
                                         &nbsp; / &nbsp;
                                       {% endif %}
                                       {% if programs_url %}
-                                        <a href="{% with_link_tracking programs_url %}" target="_blank" style="font-family:'Inter',Helvetica,Arial,sans-serif;font-size:15px;line-height:20px;text-decoration:none;color:#000001;font-weight:bold;">
+                                        <a href="{% with_link_tracking programs_url %}" target="_blank" style="font-family:'Gantari',Arial,Helvetica,sans-serif;font-size:15px;line-height:20px;text-decoration:none;color:#000001;font-weight:bold;">
                                           {% trans "Programs" as tmsg %}{{ tmsg | force_escape }}
                                         </a>
                                         &nbsp; / &nbsp;
                                       {% endif %}
-                                      <a href="{% with_link_tracking dashboard_url %}" target="_blank" style="font-family:'Inter',Helvetica,Arial,sans-serif;font-size:15px;line-height:20px;text-decoration:none;color:#000001;font-weight:bold;">
+                                      <a href="{% with_link_tracking dashboard_url %}" target="_blank" style="font-family:'Gantari',Arial,Helvetica,sans-serif;font-size:15px;line-height:20px;text-decoration:none;color:#000001;font-weight:bold;">
                                         {% trans "My Account" as tmsg %}{{ tmsg | force_escape }}
                                       </a>
                                     </td>
