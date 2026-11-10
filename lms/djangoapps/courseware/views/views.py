@@ -89,8 +89,7 @@ from lms.djangoapps.courseware.courses import (
     get_courses,
     get_permission_for_course_about,
     get_studio_url,
-    sort_by_announcement,
-    sort_by_start_date
+    sort_by_title,
 )
 from lms.djangoapps.courseware.date_summary import verified_upgrade_deadline_link
 from lms.djangoapps.courseware.exceptions import CourseAccessRedirect, Redirect
@@ -317,11 +316,7 @@ def courses(request):
             filter_={"catalog_visibility": CATALOG_VISIBILITY_CATALOG_AND_ABOUT},
         )
 
-        if configuration_helpers.get_value("ENABLE_COURSE_SORTING_BY_START_DATE",
-                                           settings.FEATURES["ENABLE_COURSE_SORTING_BY_START_DATE"]):
-            courses_list = sort_by_start_date(courses_list)
-        else:
-            courses_list = sort_by_announcement(courses_list)
+        courses_list = sort_by_title(courses_list)
 
     # Add marketable programs to the context.
     programs_list = get_programs_with_type(request.site, include_hidden=False)

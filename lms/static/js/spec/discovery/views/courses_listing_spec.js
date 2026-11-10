@@ -39,8 +39,8 @@ define([
                 {model: CourseCard}
             );
             var mock = {
-                collection: collection,
-                latest: function() { return this.collection.last(20); }
+                courseCards: collection,
+                latest: function() { return this.courseCards.last(20); }
             };
             this.view = new CoursesListing({model: mock});
         });

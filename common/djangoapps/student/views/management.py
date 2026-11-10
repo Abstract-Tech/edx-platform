@@ -43,7 +43,7 @@ from common.djangoapps.student.toggles import should_redirect_to_courseware_afte
 from common.djangoapps.track import views as track_views
 from lms.djangoapps.bulk_email.models import Optout
 from common.djangoapps.course_modes.models import CourseMode
-from lms.djangoapps.courseware.courses import get_courses, sort_by_announcement, sort_by_start_date
+from lms.djangoapps.courseware.courses import get_courses, sort_by_title
 from common.djangoapps.edxmako.shortcuts import marketing_link, render_to_response, render_to_string  # lint-amnesty, pylint: disable=unused-import
 from common.djangoapps.entitlements.models import CourseEntitlement
 from common.djangoapps.student.helpers import get_next_url_for_login_page, get_redirect_url_with_host
@@ -135,15 +135,7 @@ def index(request, extra_context=None, user=AnonymousUser()):
     if extra_context is None:
         extra_context = {}
 
-    courses = get_courses(user)
-
-    if configuration_helpers.get_value(
-        "ENABLE_COURSE_SORTING_BY_START_DATE",
-        settings.FEATURES["ENABLE_COURSE_SORTING_BY_START_DATE"],
-    ):
-        courses = sort_by_start_date(courses)
-    else:
-        courses = sort_by_announcement(courses)
+    courses = sort_by_title(get_courses(user))
 
     context = {'courses': courses}
 
