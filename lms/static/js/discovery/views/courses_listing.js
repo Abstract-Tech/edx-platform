@@ -27,21 +27,22 @@
             },
 
             renderNext: function() {
-                this.renderItems();
+                this.$list.empty();
+                this.renderItems(this.model.courseCards.models);
                 this.isLoading = false;
             },
 
-            renderItems: function() {
+            renderItems: function(items) {
                 /* eslint no-param-reassign: [2, { "props": true }] */
-                var latest = this.model.latest();
-                var items = latest.map(function(result) {
+                var latest = items || this.model.latest();
+                var renderedItems = latest.map(function(result) {
                     result.userPreferences = this.model.userPreferences;
                     var item = new CourseCardView({model: result});
                     return item.render().el;
                 }, this);
                 HtmlUtils.append(
                     this.$list,
-                    HtmlUtils.HTML(items)
+                    HtmlUtils.HTML(renderedItems)
                 );
                 /* eslint no-param-reassign: [2, { "props": false }] */
             },

@@ -273,7 +273,7 @@ class IndexPageCourseCardsSortingTests(ModuleStoreTestCase):
         ((template, context), _) = RENDER_MOCK.call_args  # pylint: disable=unpacking-non-sequence
         assert template == 'index.html'
 
-        # by default the courses will be sorted by their creation dates, earliest first.
+        # Courses are sorted by displayed title.
         assert context['courses'][0].id == self.starting_earlier.id
         assert context['courses'][1].id == self.starting_later.id
         assert context['courses'][2].id == self.course_with_default_start_date.id
@@ -284,24 +284,23 @@ class IndexPageCourseCardsSortingTests(ModuleStoreTestCase):
         ((template, context), _) = RENDER_MOCK.call_args  # pylint: disable=unpacking-non-sequence
         assert template == 'courseware/courses.html'
 
-        # by default the courses will be sorted by their creation dates, earliest first.
+        # Courses are sorted by displayed title.
         assert context['courses'][0].id == self.starting_earlier.id
         assert context['courses'][1].id == self.starting_later.id
         assert context['courses'][2].id == self.course_with_default_start_date.id
 
     @patch('common.djangoapps.student.views.management.render_to_response', RENDER_MOCK)
     @patch('lms.djangoapps.courseware.views.views.render_to_response', RENDER_MOCK)
-    @patch.dict('django.conf.settings.FEATURES', {'ENABLE_COURSE_SORTING_BY_START_DATE': False})
     @patch.dict('django.conf.settings.FEATURES', {'ENABLE_COURSE_DISCOVERY': False})
-    def test_course_cards_sorted_by_start_date_disabled(self):
+    def test_course_cards_are_sorted_by_title(self):
         response = self.client.get('/')
         assert response.status_code == 200
         ((template, context), _) = RENDER_MOCK.call_args  # pylint: disable=unpacking-non-sequence
         assert template == 'index.html'
 
-        # now the courses will be sorted by their announcement dates.
-        assert context['courses'][0].id == self.starting_later.id
-        assert context['courses'][1].id == self.starting_earlier.id
+        # The previous start-date/announcement-date setting no longer changes ordering.
+        assert context['courses'][0].id == self.starting_earlier.id
+        assert context['courses'][1].id == self.starting_later.id
         assert context['courses'][2].id == self.course_with_default_start_date.id
 
         # check the /courses view as well
@@ -310,9 +309,9 @@ class IndexPageCourseCardsSortingTests(ModuleStoreTestCase):
         ((template, context), _) = RENDER_MOCK.call_args  # pylint: disable=unpacking-non-sequence
         assert template == 'courseware/courses.html'
 
-        # now the courses will be sorted by their announcement dates.
-        assert context['courses'][0].id == self.starting_later.id
-        assert context['courses'][1].id == self.starting_earlier.id
+        # The courses page uses the same title ordering as the homepage.
+        assert context['courses'][0].id == self.starting_earlier.id
+        assert context['courses'][1].id == self.starting_later.id
         assert context['courses'][2].id == self.course_with_default_start_date.id
 
     @patch('lms.djangoapps.courseware.views.views.render_to_response', RENDER_MOCK)

@@ -5,6 +5,7 @@ courseware.
 
 import logging
 import pickle
+import unicodedata
 from collections import defaultdict, namedtuple
 from datetime import datetime
 
@@ -969,6 +970,51 @@ def sort_by_start_date(courses):
     )
 
     return courses
+
+
+def course_title_sort_key(title):
+    """Return a natural, Romanian-aware sort key for a course title."""
+
+    romanian_alphabet = "aăâbcdefghiîjklmnopqrsștțuvwxyz"
+    romanian_order = {character: index for index, character in enumerate(romanian_alphabet)}
+    character_aliases = {"ş": "ș", "ţ": "ț"}
+
+    title = unicodedata.normalize("NFC", title or "").casefold()
+    key = []
+    index = 0
+    while index < len(title):
+        character = character_aliases.get(title[index], title[index])
+        if character.isdecimal():
+            end = index + 1
+            while end < len(title) and title[end].isdecimal():
+                end += 1
+            key.append((0, int(title[index:end])))
+            index = end
+            continue
+
+        if character in romanian_order:
+            key.append((1, romanian_order[character]))
+        else:
+            base_character = next(
+                (value for value in unicodedata.normalize("NFKD", character) if value.isalpha()),
+                "",
+            )
+            key.append((1, romanian_order.get(base_character, ord(base_character) if base_character else 0)))
+        index += 1
+
+    return tuple(key)
+
+
+def sort_by_title(courses):
+    """Return courses sorted naturally by their displayed title."""
+
+    return sorted(
+        courses,
+        key=lambda course: (
+            course_title_sort_key(course.display_name_with_default),
+            str(course.id),
+        ),
+    )
 
 
 def get_cms_course_link(course, page='course'):

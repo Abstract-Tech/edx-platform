@@ -24,6 +24,7 @@ from lms.djangoapps.courseware.block_render import (
     xqueue_callback
 )
 from lms.djangoapps.courseware.views import views as courseware_views
+from lms.djangoapps.courseware.views.course_discovery import course_discovery as sorted_course_discovery
 from lms.djangoapps.courseware.views.index import CoursewareIndex
 from lms.djangoapps.courseware.views.views import CourseTabView, EnrollStaffView, StaticCourseTabView
 from lms.djangoapps.debug import views as debug_views
@@ -129,6 +130,7 @@ urlpatterns = [
     ),
 
     # Courseware search endpoints
+    path('search/course_discovery/', sorted_course_discovery, name='ats_course_discovery'),
     path('search/', include('search.urls')),
 
     # Course API
