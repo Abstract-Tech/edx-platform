@@ -225,7 +225,9 @@ class DiscussionNotificationSender:
         while has_more_subscribers:
 
             subscribers = Subscription.fetch(self.thread.id, self.course.id, query_params={'page': page})
-            if page <= subscribers.num_pages:
+            # openedx-forum may report num_pages for just the current page.
+            # Consume until an empty collection so every eligible follower is included.
+            if subscribers.collection:
                 for subscriber in subscribers.collection:
                     # Check if the subscriber is not the thread creator or response creator
                     subscriber_id = int(subscriber.get('subscriber_id'))

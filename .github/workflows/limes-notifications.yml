@@ -1,0 +1,17 @@
+name: Limes notification policy
+on:
+  push:
+    branches: [limes/verawood.1]
+  pull_request:
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'Django==5.2.13'
+      - run: python limes_notification_policy/tests/regression.py

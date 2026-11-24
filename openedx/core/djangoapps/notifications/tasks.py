@@ -163,7 +163,10 @@ def send_notifications(user_ids, course_key: str, app_name, notification_type, c
                 preference.is_enabled_for_any_channel(app_name, notification_type)
             ):
                 notification_preferences = preference.get_channels_for_notification_type(app_name, notification_type)
-                email_enabled = 'email' in notification_preferences
+                email_enabled = (
+                    'email' in notification_preferences
+                    and notification_type not in ('new_discussion_post', 'new_question_post')
+                )
                 email_cadence = preference.get_email_cadence_for_notification_type(app_name, notification_type)
                 push_notification = is_push_notification_enabled and 'push' in notification_preferences
                 new_notification = Notification(
@@ -204,13 +207,13 @@ def send_notifications(user_ids, course_key: str, app_name, notification_type, c
         # Get fresh records with pk so it can be used in email sending because there is a need to
         # update the records further down the line.
         if email_notification_user_ids:
-            email_notification_mapping = {
+            email_notification_mapping.update({
                 notif.user_id: notif
                 for notif in Notification.objects.filter(
                     user_id__in=email_notification_user_ids,
                     content_context__uuid=task_id,
                 )
-            }
+            })
     if email_notification_mapping:
         logger.info(
             f"Email Buffered Digest: Sending immediate email notifications to "

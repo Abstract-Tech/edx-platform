@@ -545,6 +545,9 @@ def decide_email_action(user: User, course_key: str, notification: Notification)
         'send_immediate', 'schedule_buffer', or 'add_to_buffer'
     """
     buffer_minutes = get_buffer_minutes()
+    # Limes: a zero cooldown means every eligible notification is immediate.
+    if buffer_minutes <= 0:
+        return 'send_immediate'
     buffer_threshold = datetime.now() - timedelta(minutes=buffer_minutes)
 
     # Use select_for_update to prevent race conditions.

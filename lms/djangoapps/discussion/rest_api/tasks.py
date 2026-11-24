@@ -61,6 +61,9 @@ def send_response_notifications(thread_id, course_key_str, user_id, comment_id, 
     user = User.objects.get(id=user_id)
     course = get_course_with_access(user, 'load', course_key, check_if_enrolled=True)
     notification_sender = DiscussionNotificationSender(thread, course, user, parent_id, comment_id)
+    from limes_notification_policy.policy import broadcast_reply
+    if broadcast_reply(notification_sender):
+        return
     notification_sender.send_new_comment_notification()
     notification_sender.send_new_response_notification()
     notification_sender.send_new_comment_on_response_notification()

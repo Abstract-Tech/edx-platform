@@ -3307,3 +3307,34 @@ SSL_AUTH_EMAIL_DOMAIN = "MIT.EDU"
 SSL_AUTH_DN_FORMAT_STRING = (
     "/C=US/ST=Massachusetts/O=Massachusetts Institute of Technology/OU=Client CA v1/CN={0}/emailAddress={1}"
 )
+
+# Limes defaults; persisted user choices still take precedence.
+_IMMEDIATE = {"web": True, "email": True, "email_cadence": "Immediately"}
+NOTIFICATION_TYPES_OVERRIDE = {
+    _t: dict(_IMMEDIATE)
+    for _t in (
+        # discussion
+        "new_comment_on_response",
+        "new_comment",
+        "new_response",
+        "new_discussion_post",
+        "new_question_post",
+        "response_on_followed_post",
+        "comment_on_followed_post",
+        "content_reported",
+        "response_endorsed_on_thread",
+        "response_endorsed",
+        "new_instructor_all_learners_post",
+        # updates
+        "course_updates",
+        # grading
+        "ora_grade_assigned",
+        "ora_reminder",
+    )
+}
+# No cooldown: every eligible notification gets its own email.
+NOTIFICATION_IMMEDIATE_EMAIL_BUFFER_MINUTES = 0
+INSTALLED_APPS += ["limes_notification_policy"]
+NOTIFICATION_APPS_OVERRIDE = {
+    _a: dict(_IMMEDIATE) for _a in ("discussion", "updates", "grading")
+}

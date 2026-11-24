@@ -1506,6 +1506,8 @@ def create_thread(request, thread_data):
         raise ValidationError(dict(list(serializer.errors.items()) + list(actions_form.errors.items())))
     serializer.save()
     cc_thread = serializer.instance
+    from limes_notification_policy.policy import remember_broadcast_thread
+    remember_broadcast_thread(cc_thread, course_key, user, notify_all_learners)
     # Use send_signal_after_commit() to ensure the signal is sent only after the transaction commits.
     send_signal_after_commit(
         lambda: thread_created.send(sender=None, user=user, post=cc_thread, notify_all_learners=notify_all_learners)
@@ -1836,6 +1838,8 @@ def delete_thread(request, thread_id):
     cc_thread, context = _get_thread_and_context(request, thread_id)
     if can_delete(cc_thread, context):
         cc_thread.delete()
+        from limes_notification_policy.models import BroadcastThread
+        BroadcastThread.objects.filter(course_id=str(context['course'].id), thread_id=str(thread_id)).delete()
         send_signal_after_commit(
             lambda: thread_deleted.send(sender=None, user=request.user, post=cc_thread)
         )

@@ -69,7 +69,7 @@ class NotificationRegistry:
         return grouper_class()
 
 
-@NotificationRegistry.register('new_discussion_post')
+# Limes: keep each discussion event separate for immediate email delivery.
 class NewPostGrouper(BaseNotificationGrouper):
     """
     Groups new post notifications based on the author name.
@@ -106,7 +106,7 @@ class OraStaffGrouper(BaseNotificationGrouper):
         return content_context
 
 
-@NotificationRegistry.register('new_response')
+# Limes: keep each discussion event separate for immediate email delivery.
 class NewResponseGrouper(BaseNotificationGrouper):
     """
     Grouper for new response on post.
@@ -122,7 +122,7 @@ class NewResponseGrouper(BaseNotificationGrouper):
         return content_context
 
 
-@NotificationRegistry.register('response_on_followed_post')
+# Limes: keep each discussion event separate for immediate email delivery.
 class NewResponseOnFollowedPostGrouper(BaseNotificationGrouper):
     """
     Grouper for new response on post.
